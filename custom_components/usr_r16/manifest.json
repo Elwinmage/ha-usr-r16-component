@@ -1,15 +1,15 @@
 {
     "domain": "usr_r16",
     "name": "USR r16",
-    "version": "0.0.1",
-    "documentation": "https://github.com/blindlight86/USR-R16",
-    "issue_tracker": "https://github.com/blindlight86/HA_USR-R16/issues",
+    "version": "1.0.0",
+    "documentation": "https://github.com/Elwinmage/ha-usr-r16-component",
+    "issue_tracker": "https://github.com/Elwinmage/ha-usr-r16-component/issues",
     "requirements": [
       "usr-r16==0.0.4"
     ],
     "dependencies": [],
     "codeowners": [
-      "@blindlight"
+      "@Elwinmage"
     ],
     "config_flow": true
   }

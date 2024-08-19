@@ -1,5 +1,5 @@
 {
-    "name": "USR-R16 16路网络继电器",
+    "name": "USR-R16 Perso",
     "domains": ["switch"],
     "render_readme": true,
     "homeassistant": "2022.7.5",

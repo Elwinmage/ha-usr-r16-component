@@ -107,7 +107,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     @callback
     def reconnected():
         """Schedule reconnect after connection has been lost."""
-        _LOGGER.warning("USR-R16 %s connected", address)
+        _LOGGER.info("USR-R16 %s connected", address)
         async_dispatcher_send(hass, f'usr_r16_device_available_{entry.entry_id}', True)
 
     async def connect():

@@ -129,9 +129,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         hass.data[DOMAIN][entry.entry_id][DATA_DEVICE_REGISTER] = client
 
         # Load entites
-        hass.async_create_task(
-            await hass.config_entries.async_forward_entry_setups(entry, ["switch"])
-        )
+        #hass.async_create_task(
+        await hass.config_entries.async_forward_entry_setups(entry, ["switch"])
+        #)
 
         _LOGGER.info("Connected to USR-R16 device: %s", address)
 

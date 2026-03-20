@@ -57,11 +57,15 @@ class R16Switch(R16Device, SwitchEntity):
             self.handle_event_callback, self._device_port
         )
 
-        # Fetch initial relay state and store in _attr_is_on
-        initial = await self._client.status(self._device_port)
-        self._attr_is_on = (
-            initial.get(self._device_port) if isinstance(initial, dict) else initial
-        )
+        # Fetch ALL relay states at once to avoid a race condition:
+        # calling status(port) concurrently for 16 entities can trigger a KeyError
+        # if a single-relay push response resolves a waiter before the full-state
+        # response arrives. status() with no arg always returns the complete dict.
+        all_states = await self._client.status()
+        if isinstance(all_states, dict):
+            self._attr_is_on = all_states.get(self._device_port)
+        else:
+            self._attr_is_on = None
 
         # Subscribe to connection availability dispatches
         from homeassistant.helpers.dispatcher import async_dispatcher_connect

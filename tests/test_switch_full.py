@@ -32,7 +32,6 @@ def _make_client():
 # async_setup_entry (switch.py line 24)
 # ---------------------------------------------------------------------------
 
-
 async def test_switch_async_setup_entry_adds_16_entities(
     hass: HomeAssistant, mock_client, mock_config_entry
 ) -> None:
@@ -55,13 +54,12 @@ async def test_switch_async_setup_entry_adds_16_entities(
 # R16Switch.async_added_to_hass (switch.py lines 56-69)
 # ---------------------------------------------------------------------------
 
-
 async def test_switch_async_added_to_hass_registers_and_fetches(
     hass: HomeAssistant,
 ) -> None:
     """async_added_to_hass should register callback, fetch state and subscribe."""
     client = _make_client()
-    client.status = AsyncMock(return_value={str(1): True})
+    client.status = AsyncMock(return_value={"1": True, "2": False})
 
     sw = R16Switch(1, TEST_ENTRY_ID, client)
     sw.hass = hass
@@ -74,12 +72,11 @@ async def test_switch_async_added_to_hass_registers_and_fetches(
         await sw.async_added_to_hass()
 
     # register_status_callback called
-    client.register_status_callback.assert_called_once_with(
-        sw.handle_event_callback, "1"
-    )
+    client.register_status_callback.assert_called_once_with(sw.handle_event_callback, "1")
 
-    # Initial state fetched from dict result
-    client.status.assert_called_once_with("1")
+    # Initial state fetched without port arg (full dict)
+    client.status.assert_called_once_with()
+    assert sw._attr_is_on is True
 
     # Dispatcher connected for availability
     mock_connect.assert_called_once()
@@ -89,7 +86,7 @@ async def test_switch_async_added_to_hass_registers_and_fetches(
 async def test_switch_async_added_to_hass_non_dict_status(hass: HomeAssistant) -> None:
     """async_added_to_hass should handle non-dict status result."""
     client = _make_client()
-    client.status = AsyncMock(return_value=True)  # non-dict
+    client.status = AsyncMock(return_value=None)  # non-dict
 
     sw = R16Switch(2, TEST_ENTRY_ID, client)
     sw.hass = hass
@@ -101,4 +98,4 @@ async def test_switch_async_added_to_hass_non_dict_status(hass: HomeAssistant) -
     ):
         await sw.async_added_to_hass()
 
-    assert sw._attr_is_on is True
+    assert sw._attr_is_on is None

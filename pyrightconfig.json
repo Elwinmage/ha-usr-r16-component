@@ -1,0 +1,18 @@
+{
+  "pythonVersion": "3.13",
+  "typeCheckingMode": "standard",
+  "include": [
+    "custom_components",
+    "scripts",
+    "tests"
+  ],
+  "exclude": [
+    ".git",
+    ".venv",
+    "reports"
+  ],
+  "venvPath": ".",
+  "venv": ".venv",
+  "reportMissingImports": false,
+  "reportMissingModuleSource": false
+}

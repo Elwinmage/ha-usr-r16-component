@@ -21,6 +21,12 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up the USR-R16 switch platform."""
+    device_client = hass.data[DOMAIN][entry.entry_id][DATA_DEVICE_REGISTER]
+
+    # Fetch all relay states once here so every entity can read
+    # client.states synchronously in async_added_to_hass — no race condition.
+    await device_client.status()
+
     async_add_entities(devices_from_entities(hass, entry))
 
 
@@ -51,21 +57,17 @@ class R16Switch(R16Device, SwitchEntity):
         await self._client.toggle(self._device_port)
 
     async def async_added_to_hass(self) -> None:
-        """Register callbacks and fetch initial state."""
+        """Register callbacks and push initial state."""
         # Register relay-state callback for this specific port
         self._client.register_status_callback(
             self.handle_event_callback, self._device_port
         )
 
-        # Fetch ALL relay states at once to avoid a race condition:
-        # calling status(port) concurrently for 16 entities can trigger a KeyError
-        # if a single-relay push response resolves a waiter before the full-state
-        # response arrives. status() with no arg always returns the complete dict.
-        all_states = await self._client.status()
-        if isinstance(all_states, dict):
-            self._attr_is_on = all_states.get(self._device_port)
-        else:
-            self._attr_is_on = None
+        # Set initial state from client.states (populated by setup()) then
+        # fire the callback path which sets _attr_is_on and writes HA state.
+        initial = self._client.states.get(self._device_port)
+        if initial is not None:
+            self.handle_event_callback(initial)
 
         # Subscribe to connection availability dispatches
         from homeassistant.helpers.dispatcher import async_dispatcher_connect

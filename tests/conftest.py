@@ -1,4 +1,5 @@
 """Pytest configuration and shared fixtures for ha-usr-r16-component tests."""
+
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -33,6 +34,7 @@ def mock_client():
 def mock_config_entry(hass: HomeAssistant):
     """Return a mock config entry for usr_r16."""
     from homeassistant.config_entries import ConfigEntry
+
     entry = MagicMock(spec=ConfigEntry)
     entry.entry_id = TEST_ENTRY_ID
     entry.domain = DOMAIN

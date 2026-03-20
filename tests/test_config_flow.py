@@ -1,4 +1,5 @@
 """Tests for the USR-R16 config flow."""
+
 from unittest.mock import patch
 
 import pytest
@@ -21,7 +22,10 @@ async def _start_flow(hass: HomeAssistant):
 
 
 # All config flow tests need hass + custom integration loader
-pytestmark = pytest.mark.usefixtures("enable_custom_integrations")
+pytestmark = [
+    pytest.mark.asyncio,
+    pytest.mark.usefixtures("enable_custom_integrations"),
+]
 
 
 async def test_step_user_shows_form(hass: HomeAssistant) -> None:
@@ -54,7 +58,11 @@ async def test_manual_step_success(hass: HomeAssistant, mock_client) -> None:
         )
         result = await hass.config_entries.flow.async_configure(
             result["flow_id"],
-            user_input={"host": TEST_HOST, "port": TEST_PORT, "password": TEST_PASSWORD},
+            user_input={
+                "host": TEST_HOST,
+                "port": TEST_PORT,
+                "password": TEST_PASSWORD,
+            },
         )
 
     assert result.get("type") == FlowResultType.CREATE_ENTRY
@@ -77,7 +85,11 @@ async def test_manual_step_cannot_connect(hass: HomeAssistant) -> None:
         )
         result = await hass.config_entries.flow.async_configure(
             result["flow_id"],
-            user_input={"host": TEST_HOST, "port": TEST_PORT, "password": TEST_PASSWORD},
+            user_input={
+                "host": TEST_HOST,
+                "port": TEST_PORT,
+                "password": TEST_PASSWORD,
+            },
         )
 
     assert result.get("type") == FlowResultType.FORM
@@ -88,12 +100,15 @@ async def test_manual_step_cannot_connect(hass: HomeAssistant) -> None:
 async def test_manual_step_already_configured(hass: HomeAssistant, mock_client) -> None:
     """Submitting a duplicate device should show an error."""
     # Patch both the config flow validation AND the actual setup connection
-    with patch(
-        "custom_components.usr_r16.config_flow.connect_client",
-        return_value=mock_client,
-    ), patch(
-        "custom_components.usr_r16.create_usr_r16_client_connection",
-        return_value=mock_client,
+    with (
+        patch(
+            "custom_components.usr_r16.config_flow.connect_client",
+            return_value=mock_client,
+        ),
+        patch(
+            "custom_components.usr_r16.create_usr_r16_client_connection",
+            return_value=mock_client,
+        ),
     ):
         result = await _start_flow(hass)
         result = await hass.config_entries.flow.async_configure(
@@ -101,7 +116,11 @@ async def test_manual_step_already_configured(hass: HomeAssistant, mock_client) 
         )
         await hass.config_entries.flow.async_configure(
             result["flow_id"],
-            user_input={"host": TEST_HOST, "port": TEST_PORT, "password": TEST_PASSWORD},
+            user_input={
+                "host": TEST_HOST,
+                "port": TEST_PORT,
+                "password": TEST_PASSWORD,
+            },
         )
 
     with patch(
@@ -114,7 +133,11 @@ async def test_manual_step_already_configured(hass: HomeAssistant, mock_client) 
         )
         result = await hass.config_entries.flow.async_configure(
             result["flow_id"],
-            user_input={"host": TEST_HOST, "port": TEST_PORT, "password": TEST_PASSWORD},
+            user_input={
+                "host": TEST_HOST,
+                "port": TEST_PORT,
+                "password": TEST_PASSWORD,
+            },
         )
 
     assert result.get("type") == FlowResultType.FORM

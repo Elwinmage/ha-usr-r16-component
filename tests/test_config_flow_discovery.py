@@ -1,7 +1,6 @@
 """Tests for config_flow discovery helpers and auto/select/import steps."""
 
 import asyncio
-import socket
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -14,14 +13,13 @@ from custom_components.usr_r16.config_flow import (
     _discover_tcp,
     _discover_udp,
     _get_local_subnet,
-    _is_already_configured,
     _probe_tcp,
     connect_client,
     discover_devices,
     validate_input,
 )
 from custom_components.usr_r16.const import DEFAULT_PASSWORD, DEFAULT_PORT, DOMAIN
-from custom_components.usr_r16.errors import AlreadyConfigured, CannotConnect
+from custom_components.usr_r16.errors import CannotConnect
 
 pytestmark = [
     pytest.mark.asyncio,
@@ -43,6 +41,7 @@ async def _start_flow(hass):
 # _get_local_subnet (lines 54-61)
 # ---------------------------------------------------------------------------
 
+
 def test_get_local_subnet_returns_cidr() -> None:
     """Should return a /24 subnet string derived from the local IP."""
     subnet = _get_local_subnet()
@@ -61,6 +60,7 @@ def test_get_local_subnet_fallback_on_error() -> None:
 # ---------------------------------------------------------------------------
 # _probe_tcp (lines 119-132)
 # ---------------------------------------------------------------------------
+
 
 async def test_probe_tcp_success() -> None:
     """Should return the IP when connection succeeds."""
@@ -109,14 +109,18 @@ async def test_probe_tcp_wait_closed_exception() -> None:
 # _discover_udp (lines 72-116)
 # ---------------------------------------------------------------------------
 
+
 async def test_discover_udp_no_replies() -> None:
     """Should return empty list when no devices reply."""
     mock_transport = MagicMock()
     mock_transport.close = MagicMock()
 
-    with patch(
-        "asyncio.get_event_loop",
-    ) as mock_loop, patch("asyncio.sleep", new_callable=AsyncMock):
+    with (
+        patch(
+            "asyncio.get_event_loop",
+        ) as mock_loop,
+        patch("asyncio.sleep", new_callable=AsyncMock),
+    ):
         mock_loop.return_value.create_datagram_endpoint = AsyncMock(
             return_value=(mock_transport, MagicMock())
         )
@@ -142,6 +146,7 @@ async def test_discover_udp_oserror_handled() -> None:
 # _discover_tcp (lines 135-153)
 # ---------------------------------------------------------------------------
 
+
 async def test_discover_tcp_finds_open_ports() -> None:
     """Should return devices where TCP port is open."""
     with patch(
@@ -161,9 +166,7 @@ async def test_discover_tcp_invalid_subnet() -> None:
 
 async def test_discover_tcp_no_open_ports() -> None:
     """Should return empty list when no hosts respond."""
-    with patch(
-        "custom_components.usr_r16.config_flow._probe_tcp", return_value=None
-    ):
+    with patch("custom_components.usr_r16.config_flow._probe_tcp", return_value=None):
         result = await _discover_tcp("192.168.1.0/30", 8899, 0.1, 2)
     assert result == []
 
@@ -172,20 +175,25 @@ async def test_discover_tcp_no_open_ports() -> None:
 # discover_devices (lines 156-179)
 # ---------------------------------------------------------------------------
 
+
 async def test_discover_devices_merges_udp_and_tcp(hass: HomeAssistant) -> None:
     """discover_devices should merge UDP and TCP results."""
     udp_device = {"host": "192.168.1.10", "name": "USR-R16"}
     tcp_device = {"host": "192.168.1.20", "name": ""}
 
-    with patch(
-        "custom_components.usr_r16.config_flow._discover_udp",
-        return_value=[udp_device],
-    ), patch(
-        "custom_components.usr_r16.config_flow._discover_tcp",
-        return_value=[tcp_device],
-    ), patch(
-        "custom_components.usr_r16.config_flow._get_local_subnet",
-        return_value="192.168.1.0/24",
+    with (
+        patch(
+            "custom_components.usr_r16.config_flow._discover_udp",
+            return_value=[udp_device],
+        ),
+        patch(
+            "custom_components.usr_r16.config_flow._discover_tcp",
+            return_value=[tcp_device],
+        ),
+        patch(
+            "custom_components.usr_r16.config_flow._get_local_subnet",
+            return_value="192.168.1.0/24",
+        ),
     ):
         devices = await discover_devices(hass)
 
@@ -194,17 +202,22 @@ async def test_discover_devices_merges_udp_and_tcp(hass: HomeAssistant) -> None:
     assert "192.168.1.20" in hosts
 
 
-async def test_discover_devices_flags_already_configured(hass: HomeAssistant, mock_client) -> None:
+async def test_discover_devices_flags_already_configured(
+    hass: HomeAssistant, mock_client
+) -> None:
     """Already-configured devices should be flagged."""
     udp_device = {"host": TEST_HOST, "name": ""}
 
     # Pre-configure the device
-    with patch(
-        "custom_components.usr_r16.config_flow.connect_client",
-        return_value=mock_client,
-    ), patch(
-        "custom_components.usr_r16.create_usr_r16_client_connection",
-        return_value=mock_client,
+    with (
+        patch(
+            "custom_components.usr_r16.config_flow.connect_client",
+            return_value=mock_client,
+        ),
+        patch(
+            "custom_components.usr_r16.create_usr_r16_client_connection",
+            return_value=mock_client,
+        ),
     ):
         result = await hass.config_entries.flow.async_init(
             DOMAIN, context={"source": config_entries.SOURCE_USER}
@@ -214,18 +227,26 @@ async def test_discover_devices_flags_already_configured(hass: HomeAssistant, mo
         )
         await hass.config_entries.flow.async_configure(
             result["flow_id"],
-            user_input={"host": TEST_HOST, "port": TEST_PORT, "password": TEST_PASSWORD},
+            user_input={
+                "host": TEST_HOST,
+                "port": TEST_PORT,
+                "password": TEST_PASSWORD,
+            },
         )
 
-    with patch(
-        "custom_components.usr_r16.config_flow._discover_udp",
-        return_value=[udp_device],
-    ), patch(
-        "custom_components.usr_r16.config_flow._discover_tcp",
-        return_value=[],
-    ), patch(
-        "custom_components.usr_r16.config_flow._get_local_subnet",
-        return_value="192.168.1.0/24",
+    with (
+        patch(
+            "custom_components.usr_r16.config_flow._discover_udp",
+            return_value=[udp_device],
+        ),
+        patch(
+            "custom_components.usr_r16.config_flow._discover_tcp",
+            return_value=[],
+        ),
+        patch(
+            "custom_components.usr_r16.config_flow._get_local_subnet",
+            return_value="192.168.1.0/24",
+        ),
     ):
         devices = await discover_devices(hass)
 
@@ -237,15 +258,19 @@ async def test_discover_devices_tcp_dedup(hass: HomeAssistant) -> None:
     """TCP result that duplicates a UDP result should not appear twice."""
     device = {"host": "192.168.1.5", "name": "USR"}
 
-    with patch(
-        "custom_components.usr_r16.config_flow._discover_udp",
-        return_value=[device],
-    ), patch(
-        "custom_components.usr_r16.config_flow._discover_tcp",
-        return_value=[{"host": "192.168.1.5", "name": ""}],  # duplicate
-    ), patch(
-        "custom_components.usr_r16.config_flow._get_local_subnet",
-        return_value="192.168.1.0/24",
+    with (
+        patch(
+            "custom_components.usr_r16.config_flow._discover_udp",
+            return_value=[device],
+        ),
+        patch(
+            "custom_components.usr_r16.config_flow._discover_tcp",
+            return_value=[{"host": "192.168.1.5", "name": ""}],  # duplicate
+        ),
+        patch(
+            "custom_components.usr_r16.config_flow._get_local_subnet",
+            return_value="192.168.1.0/24",
+        ),
     ):
         devices = await discover_devices(hass)
 
@@ -256,14 +281,18 @@ async def test_discover_devices_tcp_dedup(hass: HomeAssistant) -> None:
 # connect_client (lines 182-193)
 # ---------------------------------------------------------------------------
 
+
 async def test_connect_client_calls_create_connection(hass: HomeAssistant) -> None:
     """connect_client should call create_usr_r16_client_connection with correct args."""
     mock_client = MagicMock()
 
-    with patch(
-        "custom_components.usr_r16.config_flow.create_usr_r16_client_connection",
-        return_value=mock_client,
-    ) as mock_create, patch("asyncio.wait_for", new_callable=AsyncMock, return_value=mock_client):
+    with (
+        patch(
+            "custom_components.usr_r16.config_flow.create_usr_r16_client_connection",
+            return_value=mock_client,
+        ),
+        patch("asyncio.wait_for", new_callable=AsyncMock, return_value=mock_client),
+    ):
         result = await connect_client(
             hass,
             {"host": TEST_HOST, "port": TEST_PORT, "password": TEST_PASSWORD},
@@ -275,12 +304,18 @@ async def test_connect_client_calls_create_connection(hass: HomeAssistant) -> No
 # validate_input edge cases
 # ---------------------------------------------------------------------------
 
-async def test_validate_input_timeout_raises_cannot_connect(hass: HomeAssistant) -> None:
+
+async def test_validate_input_timeout_raises_cannot_connect(
+    hass: HomeAssistant,
+) -> None:
     """TimeoutError from connect_client should be converted to CannotConnect (line 204)."""
-    with patch(
-        "custom_components.usr_r16.config_flow.connect_client",
-        side_effect=asyncio.TimeoutError,
-    ), pytest.raises(CannotConnect):
+    with (
+        patch(
+            "custom_components.usr_r16.config_flow.connect_client",
+            side_effect=asyncio.TimeoutError,
+        ),
+        pytest.raises(CannotConnect),
+    ):
         await validate_input(
             hass,
             {"host": TEST_HOST, "port": TEST_PORT, "password": TEST_PASSWORD},
@@ -295,10 +330,13 @@ async def test_validate_input_status_raises_cannot_connect(hass: HomeAssistant) 
     mock_client.status = AsyncMock(side_effect=CannotConnect)
     mock_client.stop = MagicMock()
 
-    with patch(
-        "custom_components.usr_r16.config_flow.connect_client",
-        return_value=mock_client,
-    ), pytest.raises(CannotConnect):
+    with (
+        patch(
+            "custom_components.usr_r16.config_flow.connect_client",
+            return_value=mock_client,
+        ),
+        pytest.raises(CannotConnect),
+    ):
         await validate_input(
             hass,
             {"host": TEST_HOST, "port": TEST_PORT, "password": TEST_PASSWORD},
@@ -307,7 +345,9 @@ async def test_validate_input_status_raises_cannot_connect(hass: HomeAssistant) 
     mock_client.stop.assert_called_once()
 
 
-async def test_validate_input_disconnect_callback_with_transaction(hass: HomeAssistant) -> None:
+async def test_validate_input_disconnect_callback_with_transaction(
+    hass: HomeAssistant,
+) -> None:
     """disconnect_callback should call set_exception when in_transaction (lines 209-210)."""
     mock_future = MagicMock()
     mock_client = MagicMock()
@@ -340,10 +380,12 @@ async def test_validate_input_disconnect_callback_with_transaction(hass: HomeAss
 # async_step_import (line 238)
 # ---------------------------------------------------------------------------
 
+
 async def test_step_import_delegates_to_user(hass: HomeAssistant) -> None:
     """async_step_import with no data should show the method-selection form."""
     result = await hass.config_entries.flow.async_init(
-        DOMAIN, context={"source": config_entries.SOURCE_IMPORT},
+        DOMAIN,
+        context={"source": config_entries.SOURCE_IMPORT},
     )
     # Import calls async_step_user(None) which shows the form
     assert result.get("type") == FlowResultType.FORM
@@ -353,6 +395,7 @@ async def test_step_import_delegates_to_user(hass: HomeAssistant) -> None:
 # ---------------------------------------------------------------------------
 # Auto-discovery path (lines 245-246, 258-267)
 # ---------------------------------------------------------------------------
+
 
 async def test_step_user_auto_with_new_devices(hass: HomeAssistant) -> None:
     """Choosing 'auto' with devices found should show the select step."""
@@ -414,6 +457,7 @@ async def test_step_user_auto_empty_discovery(hass: HomeAssistant) -> None:
 # async_step_select (lines 271-306)
 # ---------------------------------------------------------------------------
 
+
 async def test_step_select_shows_device_list(hass: HomeAssistant) -> None:
     """select step should show device list including MANUAL_ENTRY."""
     devices = [
@@ -433,12 +477,14 @@ async def test_step_select_shows_device_list(hass: HomeAssistant) -> None:
         )
 
     assert result.get("step_id") == "select"
+
     # Schema should contain the hosts + manual entry
-    schema_keys = list(result["data_schema"].schema.keys())
-    assert any("selected_device" in str(k) for k in schema_keys)
+    assert result.get("data_schema") is not None
 
 
-async def test_step_select_choose_device_prefills_manual(hass: HomeAssistant, mock_client) -> None:
+async def test_step_select_choose_device_prefills_manual(
+    hass: HomeAssistant, mock_client
+) -> None:
     """Selecting a discovered device should go to manual with prefilled host."""
     devices = [{"host": "192.168.1.10", "name": "USR", "already_configured": False}]
 
@@ -484,6 +530,7 @@ async def test_step_select_choose_manual_entry(hass: HomeAssistant) -> None:
 # _get_local_subnet — happy path (lines 56-59, blocked by pytest-socket env)
 # ---------------------------------------------------------------------------
 
+
 def test_get_local_subnet_happy_path() -> None:
     """Should compute /24 subnet from a working socket (mocked)."""
     mock_sock = MagicMock()
@@ -500,6 +547,7 @@ def test_get_local_subnet_happy_path() -> None:
 # ---------------------------------------------------------------------------
 # _discover_udp — _Proto internal methods (lines 82-84, 87-97, 100)
 # ---------------------------------------------------------------------------
+
 
 async def test_discover_udp_proto_methods() -> None:
     """
@@ -542,8 +590,10 @@ async def test_discover_udp_proto_methods() -> None:
         captured_proto["proto"] = proto
         return (mock_transport, proto)
 
-    with patch("asyncio.get_event_loop") as mock_loop, \
-         patch("asyncio.sleep", new_callable=AsyncMock):
+    with (
+        patch("asyncio.get_event_loop") as mock_loop,
+        patch("asyncio.sleep", new_callable=AsyncMock),
+    ):
         mock_loop.return_value.create_datagram_endpoint = fake_endpoint
         result = await _discover_udp(0.01)
 

@@ -32,6 +32,7 @@ def _make_client():
 # async_setup_entry (switch.py line 24)
 # ---------------------------------------------------------------------------
 
+
 async def test_switch_async_setup_entry_adds_16_entities(
     hass: HomeAssistant, mock_client, mock_config_entry
 ) -> None:
@@ -41,8 +42,8 @@ async def test_switch_async_setup_entry_adds_16_entities(
 
     added_entities = []
 
-    def fake_add(entities):
-        added_entities.extend(entities)
+    def fake_add(new_entities, update_before_add: bool = False):
+        added_entities.extend(new_entities)
 
     await async_setup_entry(hass, mock_config_entry, fake_add)
 
@@ -53,6 +54,7 @@ async def test_switch_async_setup_entry_adds_16_entities(
 # ---------------------------------------------------------------------------
 # R16Switch.async_added_to_hass (switch.py lines 56-69)
 # ---------------------------------------------------------------------------
+
 
 async def test_switch_async_added_to_hass_registers_and_fetches(
     hass: HomeAssistant,
@@ -72,7 +74,9 @@ async def test_switch_async_added_to_hass_registers_and_fetches(
         await sw.async_added_to_hass()
 
     # register_status_callback called
-    client.register_status_callback.assert_called_once_with(sw.handle_event_callback, "1")
+    client.register_status_callback.assert_called_once_with(
+        sw.handle_event_callback, "1"
+    )
 
     # Initial state fetched from dict result
     client.status.assert_called_once_with("1")

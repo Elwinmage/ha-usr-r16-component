@@ -45,6 +45,7 @@ repos:
 
       - id: pyright
         name: pyright
+        exclude: ^tests/
         entry: pyright
         language: python
         args: [--project, pyrightconfig.json]

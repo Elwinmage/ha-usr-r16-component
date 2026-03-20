@@ -1,11 +1,9 @@
 """Tests for custom_components/usr_r16/__init__.py — targeting uncovered lines."""
 
-import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch, call
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.dispatcher import async_dispatcher_send
 
 from custom_components.usr_r16 import (
     DATA_DEVICE_REGISTER,
@@ -30,6 +28,7 @@ TEST_ENTRY_ID = "entry_abc"
 def _make_entry(entry_id=TEST_ENTRY_ID):
     """Return a minimal mock ConfigEntry."""
     from homeassistant.config_entries import ConfigEntry
+
     entry = MagicMock(spec=ConfigEntry)
     entry.entry_id = entry_id
     entry.domain = DOMAIN
@@ -53,6 +52,7 @@ def _make_mock_client():
 # async_setup — DOMAIN in config (lines 75-77, 88)
 # ---------------------------------------------------------------------------
 
+
 async def test_async_setup_with_domain_in_config(hass: HomeAssistant) -> None:
     """async_setup should create import tasks for each device in the config."""
     config = {
@@ -64,7 +64,9 @@ async def test_async_setup_with_domain_in_config(hass: HomeAssistant) -> None:
             }
         }
     }
-    with patch.object(hass.config_entries.flow, "async_init", return_value={}) as mock_init:
+    with patch.object(
+        hass.config_entries.flow, "async_init", return_value={}
+    ) as mock_init:
         result = await async_setup(hass, config)
     assert result is True
     mock_init.assert_called_once()
@@ -80,6 +82,7 @@ async def test_async_setup_without_domain(hass: HomeAssistant) -> None:
 # async_setup_entry — connect() coroutine and callbacks (lines 104-105, 110-111, 133)
 # ---------------------------------------------------------------------------
 
+
 async def test_async_setup_entry_runs_connect(hass: HomeAssistant) -> None:
     """async_setup_entry should schedule connect() which populates hass.data."""
     entry = _make_entry()
@@ -92,11 +95,14 @@ async def test_async_setup_entry_runs_connect(hass: HomeAssistant) -> None:
         captured["reconnect_callback"] = kwargs.get("reconnect_callback")
         return mock_client
 
-    with patch(
-        "custom_components.usr_r16.create_usr_r16_client_connection",
-        side_effect=fake_create_connection,
-    ), patch.object(
-        hass.config_entries, "async_forward_entry_setups", return_value=True
+    with (
+        patch(
+            "custom_components.usr_r16.create_usr_r16_client_connection",
+            side_effect=fake_create_connection,
+        ),
+        patch.object(
+            hass.config_entries, "async_forward_entry_setups", return_value=True
+        ),
     ):
         result = await async_setup_entry(hass, entry)
         assert result is True
@@ -121,6 +127,7 @@ async def test_async_setup_entry_runs_connect(hass: HomeAssistant) -> None:
 # async_unload_entry — cleanup edge cases (lines 147-151)
 # ---------------------------------------------------------------------------
 
+
 async def test_async_unload_entry_cleans_up(hass: HomeAssistant) -> None:
     """async_unload_entry should clean hass.data on successful unload."""
     entry = _make_entry()
@@ -139,7 +146,9 @@ async def test_async_unload_entry_cleans_up(hass: HomeAssistant) -> None:
     assert entry.entry_id not in hass.data.get(DOMAIN, {})
 
 
-async def test_async_unload_entry_keeps_domain_when_other_entries(hass: HomeAssistant) -> None:
+async def test_async_unload_entry_keeps_domain_when_other_entries(
+    hass: HomeAssistant,
+) -> None:
     """DOMAIN key in hass.data should persist if other entries still exist."""
     entry = _make_entry("entry_1")
     other_entry_id = "entry_2"
@@ -163,6 +172,7 @@ async def test_async_unload_entry_keeps_domain_when_other_entries(hass: HomeAssi
 # R16Device — handle_event_callback (lines 183-185)
 # ---------------------------------------------------------------------------
 
+
 def test_r16device_handle_event_callback() -> None:
     """R16Device.handle_event_callback should update _is_on and call write_ha_state."""
     client = MagicMock()
@@ -185,6 +195,7 @@ def test_r16device_handle_event_callback() -> None:
 # R16Device — _availability_callback (lines 190-191)
 # ---------------------------------------------------------------------------
 
+
 def test_r16device_availability_callback() -> None:
     """_availability_callback should update _attr_available and write state."""
     client = MagicMock()
@@ -205,6 +216,7 @@ def test_r16device_availability_callback() -> None:
 # ---------------------------------------------------------------------------
 # R16Device — async_added_to_hass (lines 196, 201, 204)
 # ---------------------------------------------------------------------------
+
 
 async def test_r16device_async_added_to_hass() -> None:
     """async_added_to_hass should register callback, fetch status and subscribe dispatcher."""

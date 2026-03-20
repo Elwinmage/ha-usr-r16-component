@@ -108,9 +108,8 @@ async def test_manual_step_already_configured(hass: HomeAssistant, mock_client) 
             return_value=mock_client,
         ),
         patch(
-            "custom_components.usr_r16.create_usr_r16_client_connection",
-            new_callable=AsyncMock,
-            return_value=mock_client,
+            "custom_components.usr_r16.async_setup_entry",
+            return_value=True,
         ),
     ):
         result = await _start_flow(hass)

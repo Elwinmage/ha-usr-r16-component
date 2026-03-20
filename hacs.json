@@ -1,6 +1,5 @@
 {
   "name": "USR-R16",
   "render_readme": true,
-  "homeassistant": "2022.7.5",
-  "iot_class": "local_push"
-}
+  "homeassistant": "2022.7.5"
+  }

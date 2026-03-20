@@ -1,53 +1,53 @@
 {
-    "config": {
-        "step": {
-            "user": {
-                "title": "USR-R16 Setup",
-                "description": "How do you want to add your USR-R16 device?",
-                "data": {
-                    "discovery_method": "Setup method"
-                },
-                "data_description": {
-                    "discovery_method": "Auto-discover scans your local network. Manual lets you enter the IP address directly."
-                }
-            },
-            "select": {
-                "title": "Discovered Devices",
-                "description": "Select a device found on your network, or choose to enter details manually.",
-                "data": {
-                    "selected_device": "Device"
-                }
-            },
-            "manual": {
-                "title": "Device Connection",
-                "description": "Enter the connection details for your USR-R16 relay board.",
-                "data": {
-                    "host": "Host",
-                    "port": "Port",
-                    "password": "Password"
-                },
-                "data_description": {
-                    "host": "IP address of your USR-R16 device on the local network.",
-                    "port": "TCP port of the device (default: 8899).",
-                    "password": "Device password (default: admin)."
-                }
-            }
+  "config": {
+    "step": {
+      "user": {
+        "title": "USR-R16 Setup",
+        "description": "How do you want to add your USR-R16 device?",
+        "data": {
+          "discovery_method": "Setup method"
         },
-        "error": {
-            "cannot_connect": "Failed to connect to the device. Check the host, port and password.",
-            "already_configured": "This device is already configured.",
-            "no_devices_found": "No new USR-R16 device found on the network. Please enter the details manually.",
-            "unknown": "Unexpected error occurred."
-        },
-        "abort": {
-            "already_configured": "This device is already configured."
+        "data_description": {
+          "discovery_method": "Auto-discover scans your local network. Manual lets you enter the IP address directly."
         }
+      },
+      "select": {
+        "title": "Discovered Devices",
+        "description": "Select a device found on your network, or choose to enter details manually.",
+        "data": {
+          "selected_device": "Device"
+        }
+      },
+      "manual": {
+        "title": "Device Connection",
+        "description": "Enter the connection details for your USR-R16 relay board.",
+        "data": {
+          "host": "Host",
+          "port": "Port",
+          "password": "Password"
+        },
+        "data_description": {
+          "host": "IP address of your USR-R16 device on the local network.",
+          "port": "TCP port of the device (default: 8899).",
+          "password": "Device password (default: admin)."
+        }
+      }
     },
-    "entity": {
-        "switch": {
-            "relay": {
-                "name": "Relay {channel}"
-            }
-        }
+    "error": {
+      "cannot_connect": "Failed to connect to the device. Check the host, port and password.",
+      "already_configured": "This device is already configured.",
+      "no_devices_found": "No new USR-R16 device found on the network. Please enter the details manually.",
+      "unknown": "Unexpected error occurred."
+    },
+    "abort": {
+      "already_configured": "This device is already configured."
     }
+  },
+  "entity": {
+    "switch": {
+      "relay": {
+        "name": "Relay {channel}"
+      }
+    }
+  }
 }

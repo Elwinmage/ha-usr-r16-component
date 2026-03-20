@@ -1,4 +1,5 @@
 """Config flow for USR-R16."""
+
 import asyncio
 import socket
 
@@ -21,10 +22,10 @@ from .errors import AlreadyConfigured, CannotConnect
 
 # ---- Discovery constants ---------------------------------------------------
 UDP_DISCOVERY_PORT = 1901
-UDP_DISCOVERY_MSG  = bytes.fromhex("ff010102")
-UDP_DISCOVERY_TIMEOUT = 3.0   # seconds to wait for UDP replies
-TCP_SCAN_TIMEOUT   = 1.0      # seconds per TCP probe
-TCP_SCAN_WORKERS   = 50       # parallel TCP connections
+UDP_DISCOVERY_MSG = bytes.fromhex("ff010102")
+UDP_DISCOVERY_TIMEOUT = 3.0  # seconds to wait for UDP replies
+TCP_SCAN_TIMEOUT = 1.0  # seconds per TCP probe
+TCP_SCAN_WORKERS = 50  # parallel TCP connections
 
 # Sentinel value shown in the select list to trigger manual entry
 MANUAL_ENTRY = "__manual__"
@@ -46,6 +47,7 @@ SCHEMA_INIT = vol.Schema(
 
 
 # ---- Helpers ---------------------------------------------------------------
+
 
 def _get_local_subnet() -> str:
     """Detect the local /24 subnet from the outbound interface."""
@@ -88,7 +90,9 @@ async def _discover_udp(timeout: float) -> list[dict]:
             name = ""
             if len(data) >= 35 and data[0] == 0xFF and data[1] == len(data):
                 ip = f"{data[5]}.{data[6]}.{data[7]}.{data[8]}"
-                name = data[19:35].decode("ascii", errors="replace").rstrip("\x00").strip()
+                name = (
+                    data[19:35].decode("ascii", errors="replace").rstrip("\x00").strip()
+                )
             if ip not in found:
                 found[ip] = {"host": ip, "name": name}
 
@@ -128,9 +132,12 @@ async def _probe_tcp(ip: str, port: int, timeout: float) -> str | None:
         return None
 
 
-async def _discover_tcp(subnet: str, port: int, timeout: float, workers: int) -> list[dict]:
+async def _discover_tcp(
+    subnet: str, port: int, timeout: float, workers: int
+) -> list[dict]:
     """Scan subnet for open TCP port. Returns list of dicts with key: host."""
     import ipaddress
+
     try:
         network = ipaddress.ip_network(subnet, strict=False)
     except ValueError:
@@ -158,7 +165,9 @@ async def discover_devices(hass: HomeAssistant) -> list[dict]:
 
     # TCP scan to catch devices that don't respond to broadcast
     subnet = _get_local_subnet()
-    tcp_results = await _discover_tcp(subnet, DEFAULT_PORT, TCP_SCAN_TIMEOUT, TCP_SCAN_WORKERS)
+    tcp_results = await _discover_tcp(
+        subnet, DEFAULT_PORT, TCP_SCAN_TIMEOUT, TCP_SCAN_WORKERS
+    )
     for d in tcp_results:
         if d["host"] not in found:
             found[d["host"]] = d
@@ -195,8 +204,9 @@ async def validate_input(hass: HomeAssistant, user_input):
         raise CannotConnect
 
     try:
+
         def disconnect_callback():
-            if client.in_transaction:
+            if client.in_transaction and client.active_transaction is not None:
                 client.active_transaction.set_exception(CannotConnect)
 
         client.disconnect_callback = disconnect_callback
@@ -211,6 +221,7 @@ async def validate_input(hass: HomeAssistant, user_input):
 
 
 # ---- Config flow -----------------------------------------------------------
+
 
 class R16FlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a USR-R16 config flow."""
@@ -283,16 +294,14 @@ class R16FlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             if d["name"]:
                 label += f"  ({d['name']})"
             if d["already_configured"]:
-                label += f"  — already configured"
+                label += "  — already configured"
             options[d["host"]] = label
 
         options[MANUAL_ENTRY] = "Enter manually…"
 
         return self.async_show_form(
             step_id="select",
-            data_schema=vol.Schema(
-                {vol.Required("selected_device"): vol.In(options)}
-            ),
+            data_schema=vol.Schema({vol.Required("selected_device"): vol.In(options)}),
             errors=errors,
         )
 
@@ -305,9 +314,16 @@ class R16FlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         # Pre-fill form if coming from discovery selection
         schema = vol.Schema(
             {
-                vol.Required(CONF_HOST, default=(prefill or {}).get(CONF_HOST, "")): str,
-                vol.Optional(CONF_PORT, default=(prefill or {}).get(CONF_PORT, DEFAULT_PORT)): vol.Coerce(int),
-                vol.Optional(CONF_PASSWORD, default=(prefill or {}).get(CONF_PASSWORD, DEFAULT_PASSWORD)): str,
+                vol.Required(
+                    CONF_HOST, default=(prefill or {}).get(CONF_HOST, "")
+                ): str,
+                vol.Optional(
+                    CONF_PORT, default=(prefill or {}).get(CONF_PORT, DEFAULT_PORT)
+                ): vol.Coerce(int),
+                vol.Optional(
+                    CONF_PASSWORD,
+                    default=(prefill or {}).get(CONF_PASSWORD, DEFAULT_PASSWORD),
+                ): str,
             }
         )
 

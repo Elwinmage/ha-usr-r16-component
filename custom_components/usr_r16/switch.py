@@ -1,4 +1,5 @@
 """Support for USR-R16 switches."""
+
 from homeassistant.components.switch import SwitchEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
@@ -58,10 +59,13 @@ class R16Switch(R16Device, SwitchEntity):
 
         # Fetch initial relay state and store in _attr_is_on
         initial = await self._client.status(self._device_port)
-        self._attr_is_on = initial.get(self._device_port) if isinstance(initial, dict) else initial
+        self._attr_is_on = (
+            initial.get(self._device_port) if isinstance(initial, dict) else initial
+        )
 
         # Subscribe to connection availability dispatches
         from homeassistant.helpers.dispatcher import async_dispatcher_connect
+
         self.async_on_remove(
             async_dispatcher_connect(
                 self.hass,

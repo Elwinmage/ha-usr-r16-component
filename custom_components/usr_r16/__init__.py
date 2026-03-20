@@ -1,4 +1,5 @@
 """Support for USR-R16 relay switches."""
+
 import asyncio
 import logging
 
@@ -51,7 +52,9 @@ CONFIG_SCHEMA = vol.Schema(
                     {
                         vol.Required(CONF_HOST): cv.string,
                         vol.Optional(CONF_PORT, default=DEFAULT_PORT): cv.port,
-                        vol.Optional(CONF_PASSWORD, default=DEFAULT_PASSWORD): cv.string,
+                        vol.Optional(
+                            CONF_PASSWORD, default=DEFAULT_PASSWORD
+                        ): cv.string,
                         vol.Required(CONF_SWITCHES): vol.Schema(
                             {RELAY_ID: SWITCH_SCHEMA}
                         ),

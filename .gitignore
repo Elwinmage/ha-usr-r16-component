@@ -1,0 +1,42 @@
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*~
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+MANIFEST
+
+# Test / coverage
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+coverage.xml
+.pytest_cache/
+htmlcov/
+reports/
+
+# Environments
+.env
+.venv
+env/
+venv/
+
+# Type checkers
+.mypy_cache/
+.pyre/
+.pytype/
+dmypy.json
+
+# Tools
+.ruff_cache/
+.dev/
+.private/
+*.tar*

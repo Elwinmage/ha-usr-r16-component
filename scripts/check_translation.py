@@ -42,12 +42,14 @@ script_dir = os.path.dirname(os.path.abspath(__file__))
 repo_root = os.path.dirname(script_dir)
 custom_components_dir = os.path.join(repo_root, "custom_components")
 
+
 # Detect the domain from the single folder inside custom_components/
 # (or from manifest.json if several folders exist)
 def _find_integration_path() -> tuple[str, str]:
     """Return (domain, absolute_path) for the integration under custom_components/."""
     candidates = [
-        d for d in os.listdir(custom_components_dir)
+        d
+        for d in os.listdir(custom_components_dir)
         if os.path.isdir(os.path.join(custom_components_dir, d))
         and not d.startswith(".")
     ]
@@ -88,17 +90,33 @@ entity_options: dict[str, list[str]] = {}  # {domain.key: [options]}
 if os.path.isfile(const_file):
     with open(const_file) as f:
         content = f.read()
-    entity_domains = sorted(set(
-        x.replace("Platform.", "").lower()
-        for x in re.findall(r"Platform\.[A-Z_]+", content)
-    ))
+    entity_domains = sorted(
+        set(
+            x.replace("Platform.", "").lower()
+            for x in re.findall(r"Platform\.[A-Z_]+", content)
+        )
+    )
 
 # Also detect entity domains from Python files present in the integration folder
 # (catches integrations that don't declare Platform in const.py)
 known_ha_domains = {
-    "sensor", "switch", "select", "button", "number", "binary_sensor",
-    "light", "climate", "cover", "fan", "lock", "media_player",
-    "text", "time", "date", "event", "image",
+    "sensor",
+    "switch",
+    "select",
+    "button",
+    "number",
+    "binary_sensor",
+    "light",
+    "climate",
+    "cover",
+    "fan",
+    "lock",
+    "media_player",
+    "text",
+    "time",
+    "date",
+    "event",
+    "image",
 }
 for fname in os.listdir(base_path):
     if fname.endswith(".py"):
@@ -115,23 +133,27 @@ langs: list[dict] = []
 
 if os.path.isfile(strings_file):
     with open(strings_file) as f:
-        langs.append({
-            "lang": "strings",
-            "data": json.load(f),
-            "translations_keys": [],
-            "state_keys": {},
-        })
+        langs.append(
+            {
+                "lang": "strings",
+                "data": json.load(f),
+                "translations_keys": [],
+                "state_keys": {},
+            }
+        )
 
 if os.path.isdir(translations_path):
     for file in sorted(os.listdir(translations_path)):
         if file.endswith(".json"):
             with open(os.path.join(translations_path, file)) as f:
-                langs.append({
-                    "lang": file[:-5],  # strip .json
-                    "data": json.load(f),
-                    "translations_keys": [],
-                    "state_keys": {},
-                })
+                langs.append(
+                    {
+                        "lang": file[:-5],  # strip .json
+                        "data": json.load(f),
+                        "translations_keys": [],
+                        "state_keys": {},
+                    }
+                )
 
 if not langs:
     print(Fore.RED + "ERROR: No translation files found." + Style.RESET_ALL)
@@ -143,9 +165,7 @@ if not langs:
 
 # Build a pattern that matches any EntityDescription class name dynamically
 # (works regardless of the integration's specific class names)
-ENTITY_BLOCK_SPLIT_PATTERN = re.compile(
-    r"\n\s*\w+EntityDescription\s*\("
-)
+ENTITY_BLOCK_SPLIT_PATTERN = re.compile(r"\n\s*\w+EntityDescription\s*\(")
 
 for entity_domain in entity_domains:
     entity_file = os.path.join(base_path, f"{entity_domain}.py")
@@ -228,16 +248,20 @@ for lang in langs:
 
         if missing_options:
             all_good = False
-            print(f"[{len(missing_options)}] State options needed for "
-                  f"{Fore.CYAN}{entity_key}{Style.RESET_ALL} in {label}")
+            print(
+                f"[{len(missing_options)}] State options needed for "
+                f"{Fore.CYAN}{entity_key}{Style.RESET_ALL} in {label}"
+            )
             for opt in missing_options:
                 print(f"  -> {Fore.RED}{opt}{Style.RESET_ALL}")
             print()
 
         if extra_options:
             all_good = False
-            print(f"[{len(extra_options)}] State options no longer needed for "
-                  f"{Fore.CYAN}{entity_key}{Style.RESET_ALL} in {label}")
+            print(
+                f"[{len(extra_options)}] State options no longer needed for "
+                f"{Fore.CYAN}{entity_key}{Style.RESET_ALL} in {label}"
+            )
             for opt in extra_options:
                 print(f"  -> {Fore.YELLOW}{opt}{Style.RESET_ALL}")
             print()

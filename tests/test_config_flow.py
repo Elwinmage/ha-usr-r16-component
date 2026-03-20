@@ -1,6 +1,6 @@
 """Tests for the USR-R16 config flow."""
 
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from homeassistant import config_entries
@@ -104,10 +104,12 @@ async def test_manual_step_already_configured(hass: HomeAssistant, mock_client) 
     with (
         patch(
             "custom_components.usr_r16.config_flow.connect_client",
+            new_callable=AsyncMock,
             return_value=mock_client,
         ),
         patch(
             "custom_components.usr_r16.create_usr_r16_client_connection",
+            new_callable=AsyncMock,
             return_value=mock_client,
         ),
     ):

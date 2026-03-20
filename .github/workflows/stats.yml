@@ -1,0 +1,27 @@
+name: Update Stats
+on:
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+
+jobs:
+  update-badge:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Fetch and Calculate
+        run: |
+          DATA=$(curl -s https://analytics.home-assistant.io/custom_integrations.json)
+          REAL_COUNT=$(echo $DATA | jq '.usr_r16.total')
+          ESTIMATED_COUNT=$((REAL_COUNT * 4))
+          echo "{\"estimated\": $ESTIMATED_COUNT}" > ./badges/stats.json
+
+      - name: Commit and Push
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add ./badges/stats.json
+          git commit -m "Update estimated stats" || exit 0
+          git push

@@ -50,7 +50,14 @@ async def test_manual_step_success(hass: HomeAssistant, mock_client) -> None:
     """Valid credentials should create a config entry."""
     with patch(
         "custom_components.usr_r16.config_flow.connect_client",
+        new_callable=AsyncMock,
         return_value=mock_client,
+    ), patch(
+        "custom_components.usr_r16.async_setup_entry",
+        return_value=True,
+    ), patch(
+        "custom_components.usr_r16.async_unload_entry",
+        return_value=True,
     ):
         result = await _start_flow(hass)
         result = await hass.config_entries.flow.async_configure(
@@ -64,8 +71,8 @@ async def test_manual_step_success(hass: HomeAssistant, mock_client) -> None:
                 "password": TEST_PASSWORD,
             },
         )
-        # Wait for the connect() task to complete inside the patch context
         await hass.async_block_till_done()
+
     assert result.get("type") == FlowResultType.CREATE_ENTRY
     data = result.get("data") or {}
     assert data.get("host") == TEST_HOST
@@ -108,8 +115,9 @@ async def test_manual_step_already_configured(hass: HomeAssistant, mock_client) 
             return_value=mock_client,
         ),
         patch(
-            "custom_components.usr_r16.async_setup_entry",
-            return_value=True,
+            "custom_components.usr_r16.create_usr_r16_client_connection",
+            new_callable=AsyncMock,
+            return_value=mock_client,
         ),
     ):
         result = await _start_flow(hass)

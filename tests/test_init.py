@@ -1,17 +1,11 @@
-"""Tests for custom_components/usr_r16/__init__.py — targeting uncovered lines."""
+"""Tests for __init__.py — coordinator lifecycle."""
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from homeassistant.core import HomeAssistant
 
-from custom_components.usr_r16 import (
-    DATA_DEVICE_REGISTER,
-    R16Device,
-    async_setup,
-    async_setup_entry,
-    async_unload_entry,
-)
+from custom_components.usr_r16 import USR16Coordinator, async_setup, async_setup_entry, async_unload_entry
 from custom_components.usr_r16.const import DOMAIN
 
 pytestmark = pytest.mark.usefixtures("enable_custom_integrations")
@@ -19,13 +13,14 @@ pytestmark = pytest.mark.usefixtures("enable_custom_integrations")
 TEST_HOST = "192.168.1.10"
 TEST_PORT = 8899
 TEST_PASSWORD = "admin"
-TEST_ENTRY_ID = "entry_abc"
+TEST_ENTRY_ID = "test_entry_abc"
+
+ALL_OFF = {str(i): False for i in range(1, 17)}
+ALL_ON  = {str(i): True  for i in range(1, 17)}
 
 
 def _make_entry(entry_id=TEST_ENTRY_ID):
-    """Return a minimal mock ConfigEntry."""
     from homeassistant.config_entries import ConfigEntry
-
     entry = MagicMock(spec=ConfigEntry)
     entry.entry_id = entry_id
     entry.domain = DOMAIN
@@ -33,38 +28,26 @@ def _make_entry(entry_id=TEST_ENTRY_ID):
     return entry
 
 
-def _make_mock_client():
-    """Return a mock USR-R16 client."""
+def _make_mock_client(states=None):
     client = MagicMock()
     client.is_connected = True
     client.in_transaction = False
     client.active_transaction = None
     client.status_callbacks = {}
-    client.status = AsyncMock(return_value={str(i): False for i in range(1, 17)})
+    client.states = states or dict(ALL_OFF)
+    client.status = AsyncMock(return_value=states or dict(ALL_OFF))
     client.stop = MagicMock()
     return client
 
 
 # ---------------------------------------------------------------------------
-# async_setup — DOMAIN in config (lines 75-77, 88)
+# async_setup — YAML import
 # ---------------------------------------------------------------------------
 
-
 @pytest.mark.asyncio
-async def test_async_setup_with_domain_in_config(hass: HomeAssistant) -> None:
-    """async_setup should create import tasks for each device in the config."""
-    config = {
-        DOMAIN: {
-            "device1": {
-                "host": TEST_HOST,
-                "port": TEST_PORT,
-                "password": TEST_PASSWORD,
-            }
-        }
-    }
-    with patch.object(
-        hass.config_entries.flow, "async_init", return_value={}
-    ) as mock_init:
+async def test_async_setup_with_domain_creates_tasks(hass: HomeAssistant) -> None:
+    config = {DOMAIN: {"dev1": {"host": TEST_HOST, "port": TEST_PORT, "password": TEST_PASSWORD}}}
+    with patch.object(hass.config_entries.flow, "async_init", return_value={}) as mock_init:
         result = await async_setup(hass, config)
     assert result is True
     mock_init.assert_called_once()
@@ -72,74 +55,180 @@ async def test_async_setup_with_domain_in_config(hass: HomeAssistant) -> None:
 
 @pytest.mark.asyncio
 async def test_async_setup_without_domain(hass: HomeAssistant) -> None:
-    """async_setup should return True immediately when DOMAIN absent."""
     result = await async_setup(hass, {})
     assert result is True
 
 
 # ---------------------------------------------------------------------------
-# async_setup_entry — connect() coroutine and callbacks (lines 104-105, 110-111, 133)
+# USR16Coordinator — connect and initial state
 # ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_coordinator_connect_publishes_initial_states(hass: HomeAssistant) -> None:
+    entry = _make_entry()
+    mock_client = _make_mock_client(ALL_OFF)
+
+    coordinator = USR16Coordinator(hass, entry)
+    with patch(
+        "custom_components.usr_r16.create_usr_r16_client_connection",
+        new_callable=AsyncMock,
+        return_value=mock_client,
+    ):
+        await coordinator.async_connect()
+
+    assert coordinator.data is not None
+    assert coordinator.data["1"] is False
+    assert coordinator.data["16"] is False
 
 
 @pytest.mark.asyncio
-async def test_async_setup_entry_runs_connect(hass: HomeAssistant) -> None:
-    """async_setup_entry should schedule connect() which populates hass.data."""
+async def test_coordinator_relay_callback_updates_data(hass: HomeAssistant) -> None:
+    entry = _make_entry()
+    mock_client = _make_mock_client(ALL_OFF)
+
+    coordinator = USR16Coordinator(hass, entry)
+    with patch(
+        "custom_components.usr_r16.create_usr_r16_client_connection",
+        new_callable=AsyncMock,
+        return_value=mock_client,
+    ):
+        await coordinator.async_connect()
+
+    # Simulate a push callback for relay 3 turning ON
+    cb = coordinator._make_relay_callback("3")
+    cb(True)
+
+    assert coordinator.data["3"] is True
+    assert coordinator.data["1"] is False  # others unchanged
+
+
+@pytest.mark.asyncio
+async def test_coordinator_disconnect_callback(hass: HomeAssistant) -> None:
     entry = _make_entry()
     mock_client = _make_mock_client()
 
-    captured: dict = {}
+    coordinator = USR16Coordinator(hass, entry)
+    with patch(
+        "custom_components.usr_r16.create_usr_r16_client_connection",
+        new_callable=AsyncMock,
+        return_value=mock_client,
+    ):
+        await coordinator.async_connect()
 
-    async def fake_create_connection(**kwargs):
-        captured["disconnect_callback"] = kwargs.get("disconnect_callback")
-        captured["reconnect_callback"] = kwargs.get("reconnect_callback")
-        return mock_client
+    coordinator._on_disconnected()
+    assert coordinator.last_update_success is False
 
-    with (
-        patch(
-            "custom_components.usr_r16.create_usr_r16_client_connection",
-            side_effect=fake_create_connection,
-        ),
-        patch.object(
-            hass.config_entries, "async_forward_entry_setups", return_value=True
-        ),
+
+@pytest.mark.asyncio
+async def test_coordinator_reconnect_refreshes_states(hass: HomeAssistant) -> None:
+    entry = _make_entry()
+    new_states = {str(i): True for i in range(1, 17)}
+    mock_client = _make_mock_client(ALL_OFF)
+    mock_client.status = AsyncMock(side_effect=[dict(ALL_OFF), new_states])
+
+    coordinator = USR16Coordinator(hass, entry)
+    with patch(
+        "custom_components.usr_r16.create_usr_r16_client_connection",
+        new_callable=AsyncMock,
+        return_value=mock_client,
+    ):
+        await coordinator.async_connect()
+
+    coordinator._on_reconnected()
+    await hass.async_block_till_done()
+
+    assert coordinator.data == new_states
+
+
+def test_coordinator_stop_calls_client_stop(hass) -> None:
+    entry = _make_entry()
+    coordinator = USR16Coordinator(hass, entry)
+    coordinator._entry = entry
+    mock_client = MagicMock()
+    coordinator._client = mock_client
+    coordinator.stop()
+    mock_client.stop.assert_called_once()
+    assert coordinator._client is None
+
+
+@pytest.mark.asyncio
+async def test_coordinator_async_update_data(hass: HomeAssistant) -> None:
+    entry = _make_entry()
+    mock_client = _make_mock_client(ALL_OFF)
+
+    coordinator = USR16Coordinator(hass, entry)
+    with patch(
+        "custom_components.usr_r16.create_usr_r16_client_connection",
+        new_callable=AsyncMock,
+        return_value=mock_client,
+    ):
+        await coordinator.async_connect()
+
+    mock_client.status = AsyncMock(return_value=ALL_ON)
+    result = await coordinator._async_update_data()
+    assert result == ALL_ON
+
+
+@pytest.mark.asyncio
+async def test_coordinator_relay_controls(hass: HomeAssistant) -> None:
+    entry = _make_entry()
+    mock_client = _make_mock_client()
+    mock_client.turn_on  = AsyncMock()
+    mock_client.turn_off = AsyncMock()
+    mock_client.toggle   = AsyncMock()
+
+    coordinator = USR16Coordinator(hass, entry)
+    with patch(
+        "custom_components.usr_r16.create_usr_r16_client_connection",
+        new_callable=AsyncMock,
+        return_value=mock_client,
+    ):
+        await coordinator.async_connect()
+
+    await coordinator.async_turn_on("3")
+    mock_client.turn_on.assert_called_once_with("3")
+
+    await coordinator.async_turn_off("5")
+    mock_client.turn_off.assert_called_once_with("5")
+
+    await coordinator.async_toggle("7")
+    mock_client.toggle.assert_called_once_with("7")
+
+
+# ---------------------------------------------------------------------------
+# async_setup_entry / async_unload_entry
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_async_setup_entry_stores_coordinator(hass: HomeAssistant) -> None:
+    entry = _make_entry()
+    mock_client = _make_mock_client()
+
+    with patch(
+        "custom_components.usr_r16.create_usr_r16_client_connection",
+        new_callable=AsyncMock,
+        return_value=mock_client,
+    ), patch.object(
+        hass.config_entries, "async_forward_entry_setups", return_value=True
     ):
         result = await async_setup_entry(hass, entry)
-        assert result is True
-        # Let the scheduled connect() task run
-        await hass.async_block_till_done()
 
-    # Client should be registered
-    assert hass.data[DOMAIN][entry.entry_id][DATA_DEVICE_REGISTER] is mock_client
-
-    # Verify disconnected() callback dispatches False (lines 104-105)
-    disconnect_cb = captured.get("disconnect_callback")
-    assert disconnect_cb is not None
-    disconnect_cb()
-
-    # Verify reconnected() callback dispatches True (lines 110-111)
-    reconnect_cb = captured.get("reconnect_callback")
-    assert reconnect_cb is not None
-    reconnect_cb()
-
-
-# ---------------------------------------------------------------------------
-# async_unload_entry — cleanup edge cases (lines 147-151)
-# ---------------------------------------------------------------------------
+    assert result is True
+    assert entry.entry_id in hass.data[DOMAIN]
+    assert isinstance(hass.data[DOMAIN][entry.entry_id], USR16Coordinator)
 
 
 @pytest.mark.asyncio
 async def test_async_unload_entry_cleans_up(hass: HomeAssistant) -> None:
-    """async_unload_entry should clean hass.data on successful unload."""
     entry = _make_entry()
     mock_client = _make_mock_client()
+    coordinator = USR16Coordinator(hass, entry)
+    coordinator._client = mock_client
+    coordinator.async_set_updated_data(dict(ALL_OFF))
 
-    hass.data.setdefault(DOMAIN, {})
-    hass.data[DOMAIN][entry.entry_id] = {DATA_DEVICE_REGISTER: mock_client}
+    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = coordinator
 
-    with patch.object(
-        hass.config_entries, "async_forward_entry_unload", return_value=True
-    ):
+    with patch.object(hass.config_entries, "async_forward_entry_unload", return_value=True):
         ok = await async_unload_entry(hass, entry)
 
     assert ok is True
@@ -148,104 +237,40 @@ async def test_async_unload_entry_cleans_up(hass: HomeAssistant) -> None:
 
 
 @pytest.mark.asyncio
-async def test_async_unload_entry_keeps_domain_when_other_entries(
-    hass: HomeAssistant,
-) -> None:
-    """DOMAIN key in hass.data should persist if other entries still exist."""
-    entry = _make_entry("entry_1")
-    other_entry_id = "entry_2"
-    mock_client = _make_mock_client()
+async def test_coordinator_reconnect_status_error_logged(hass: HomeAssistant) -> None:
+    """Exception during post-reconnect status() should be logged, not raised."""
+    entry = _make_entry()
+    mock_client = _make_mock_client(ALL_OFF)
+    mock_client.status = AsyncMock(side_effect=[dict(ALL_OFF), Exception("boom")])
 
-    hass.data.setdefault(DOMAIN, {})
-    hass.data[DOMAIN][entry.entry_id] = {DATA_DEVICE_REGISTER: mock_client}
-    hass.data[DOMAIN][other_entry_id] = {}  # Simulate a second entry
-
-    with patch.object(
-        hass.config_entries, "async_forward_entry_unload", return_value=True
+    coordinator = USR16Coordinator(hass, entry)
+    with patch(
+        "custom_components.usr_r16.create_usr_r16_client_connection",
+        new_callable=AsyncMock,
+        return_value=mock_client,
     ):
-        await async_unload_entry(hass, entry)
+        await coordinator.async_connect()
 
-    # DOMAIN should still be present for the remaining entry
-    assert DOMAIN in hass.data
-    assert other_entry_id in hass.data[DOMAIN]
-
-
-# ---------------------------------------------------------------------------
-# R16Device — handle_event_callback (lines 183-185)
-# ---------------------------------------------------------------------------
-
-
-def test_r16device_handle_event_callback() -> None:
-    """R16Device.handle_event_callback should update _is_on and call write_ha_state."""
-    client = MagicMock()
-    client.is_connected = True
-    device = R16Device(1, "entry_x", client)
-    device.async_write_ha_state = MagicMock()
-
-    # Call the BASE class version directly (R16Switch overrides it)
-    R16Device.handle_event_callback(device, True)
-    assert device._is_on is True
-    device.async_write_ha_state.assert_called_once()
-
-    device.async_write_ha_state.reset_mock()
-    R16Device.handle_event_callback(device, False)
-    assert device._is_on is False
-    device.async_write_ha_state.assert_called_once()
-
-
-# ---------------------------------------------------------------------------
-# R16Device — _availability_callback (lines 190-191)
-# ---------------------------------------------------------------------------
-
-
-def test_r16device_availability_callback() -> None:
-    """_availability_callback should update _attr_available and write state."""
-    client = MagicMock()
-    client.is_connected = True
-    device = R16Device(1, "entry_x", client)
-    device.async_write_ha_state = MagicMock()
-
-    device._availability_callback(False)
-    assert device._attr_available is False
-    device.async_write_ha_state.assert_called_once()
-
-    device.async_write_ha_state.reset_mock()
-    device._availability_callback(True)
-    assert device._attr_available is True
-    device.async_write_ha_state.assert_called_once()
-
-
-# ---------------------------------------------------------------------------
-# R16Device — async_added_to_hass (lines 196, 201, 204)
-# ---------------------------------------------------------------------------
+    # Should not raise
+    coordinator._on_reconnected()
+    await hass.async_block_till_done()
 
 
 @pytest.mark.asyncio
-async def test_r16device_async_added_to_hass() -> None:
-    """async_added_to_hass should register callback, fetch status and subscribe dispatcher."""
-    client = MagicMock()
-    client.is_connected = True
-    client.status = AsyncMock(return_value=False)
+async def test_coordinator_async_update_data_raises_update_failed(hass: HomeAssistant) -> None:
+    """_async_update_data should wrap exceptions as UpdateFailed."""
+    from homeassistant.helpers.update_coordinator import UpdateFailed
+    entry = _make_entry()
+    mock_client = _make_mock_client(ALL_OFF)
 
-    device = R16Device(1, TEST_ENTRY_ID, client)
-    device.hass = MagicMock()
-    device.async_on_remove = MagicMock()
-
+    coordinator = USR16Coordinator(hass, entry)
     with patch(
-        "custom_components.usr_r16.async_dispatcher_connect",
-        return_value=MagicMock(),
-    ) as mock_connect:
-        await device.async_added_to_hass()
+        "custom_components.usr_r16.create_usr_r16_client_connection",
+        new_callable=AsyncMock,
+        return_value=mock_client,
+    ):
+        await coordinator.async_connect()
 
-    # register_status_callback should be called with the callback and port
-    client.register_status_callback.assert_called_once_with(
-        device.handle_event_callback, "1"
-    )
-    # Initial status fetched
-    client.status.assert_called_once_with("1")
-    assert device._is_on is False
-
-    # Dispatcher connected
-    mock_connect.assert_called_once()
-    # async_on_remove called with the unsubscribe token
-    device.async_on_remove.assert_called_once()
+    mock_client.status = AsyncMock(side_effect=Exception("network error"))
+    with pytest.raises(UpdateFailed):
+        await coordinator._async_update_data()

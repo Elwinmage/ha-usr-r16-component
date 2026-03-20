@@ -1,61 +1,71 @@
 """Support for USR-R16 switches."""
 from homeassistant.components.switch import SwitchEntity
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-# from homeassistant.const import CONF_NAME
 
 from . import DATA_DEVICE_REGISTER, R16Device
 from .const import DOMAIN
 
-# def devices_from_config(hass, domain_config):
-#     """Parse configuration and add USR-R16 switch devices."""
-#     switches = domain_config[0]
-#     device_id = domain_config[1]
-#     device_client = hass.data[DATA_DEVICE_REGISTER][device_id]
-#     devices = []
-#     for device_port, device_config in switches.items():
-#         device_name = device_config.get(CONF_NAME, device_port)
-#         device = R16Switch(device_name, device_port, device_id, device_client)
-#         devices.append(device)
-#     return devices
 
-async def async_setup_platform(hass, config, async_add_entities, discovery_info=None):
-    """Set up the USR-R16 platform."""
-    # async_add_entities(devices_from_config(hass, discovery_info))
-
-def devices_from_entities(hass, entry):
-    """Parse configuration and add USR-R16 switch devices."""
+def devices_from_entities(hass: HomeAssistant, entry: ConfigEntry) -> list["R16Switch"]:
+    """Instantiate one R16Switch per relay channel (1-16)."""
     device_client = hass.data[DOMAIN][entry.entry_id][DATA_DEVICE_REGISTER]
-    devices = []
-    for i in range(1,17):
-        device_port = i
-        device = R16Switch(device_port, entry.entry_id, device_client)
-        devices.append(device)
-    return devices
+    return [R16Switch(port, entry.entry_id, device_client) for port in range(1, 17)]
+
 
 async def async_setup_entry(
-    hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
-    """Set up the USR-R16 platform."""
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    async_add_entities: AddEntitiesCallback,
+) -> None:
+    """Set up the USR-R16 switch platform."""
     async_add_entities(devices_from_entities(hass, entry))
 
 
 class R16Switch(R16Device, SwitchEntity):
-    """Representation of a USR-R16 switch."""
+    """Representation of a single USR-R16 relay channel."""
 
-    @property
-    def is_on(self):
-        """Return true if device is on."""
-        return self._is_on
+    _attr_translation_key = "relay"
 
-    async def async_turn_on(self, **kwargs):
-        """Turn the device on."""
+    # _attr_is_on is inherited from SwitchEntity/_attr_* pattern;
+    # we shadow _is_on with _attr_is_on to avoid @property override issues.
+
+    @callback
+    def handle_event_callback(self, event: bool) -> None:
+        """Override parent to also update _attr_is_on."""
+        self._attr_is_on = event
+        self.async_write_ha_state()
+
+    async def async_turn_on(self, **kwargs) -> None:
+        """Close the relay (turn ON)."""
         await self._client.turn_on(self._device_port)
 
-    async def async_turn_off(self, **kwargs):
-        """Turn the device off."""
+    async def async_turn_off(self, **kwargs) -> None:
+        """Open the relay (turn OFF)."""
         await self._client.turn_off(self._device_port)
-    
-    async def async_toggle(self, **kwargs):
-        """Turn the device off."""
+
+    async def async_toggle(self, **kwargs) -> None:
+        """Toggle the relay state."""
         await self._client.toggle(self._device_port)
+
+    async def async_added_to_hass(self) -> None:
+        """Register callbacks and fetch initial state."""
+        # Register relay-state callback for this specific port
+        self._client.register_status_callback(
+            self.handle_event_callback, self._device_port
+        )
+
+        # Fetch initial relay state and store in _attr_is_on
+        initial = await self._client.status(self._device_port)
+        self._attr_is_on = initial.get(self._device_port) if isinstance(initial, dict) else initial
+
+        # Subscribe to connection availability dispatches
+        from homeassistant.helpers.dispatcher import async_dispatcher_connect
+        self.async_on_remove(
+            async_dispatcher_connect(
+                self.hass,
+                f"usr_r16_device_available_{self._entry_id}",
+                self._availability_callback,
+            )
+        )

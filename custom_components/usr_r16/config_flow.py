@@ -176,7 +176,7 @@ async def connect_client(hass, user_input):
         host=user_input[CONF_HOST],
         port=user_input[CONF_PORT],
         password=user_input[CONF_PASSWORD],
-        loop=hass.loop,
+        loop=asyncio.get_event_loop(),
         timeout=CONNECTION_TIMEOUT,
         reconnect_interval=DEFAULT_RECONNECT_INTERVAL,
         keep_alive_interval=DEFAULT_KEEP_ALIVE_INTERVAL,

@@ -41,7 +41,7 @@ def test_unique_id():
 def test_name():
     """Entity name should include the domain and port number."""
     sw = _make_switch(port=5)
-    assert "5" in sw.name
+    assert "5" in str(sw.name)
 
 
 def test_should_poll_is_false():

@@ -26,16 +26,14 @@ async def _start_flow(hass: HomeAssistant):
 # Step: user (method selection)
 # ---------------------------------------------------------------------------
 
-@pytest.mark.asyncio
 async def test_step_user_shows_form(hass: HomeAssistant):
     """Step 'user' should show the method-selection form."""
     result = await _start_flow(hass)
 
-    assert result["type"] == FlowResultType.FORM
-    assert result["step_id"] == "user"
+    assert result.get("type") == FlowResultType.FORM
+    assert result.get("step_id") == "user"
 
 
-@pytest.mark.asyncio
 async def test_step_user_manual_proceeds_to_manual(hass: HomeAssistant):
     """Choosing 'manual' should go directly to the manual entry step."""
     result = await _start_flow(hass)
@@ -44,15 +42,14 @@ async def test_step_user_manual_proceeds_to_manual(hass: HomeAssistant):
         user_input={"discovery_method": "manual"},
     )
 
-    assert result["type"] == FlowResultType.FORM
-    assert result["step_id"] == "manual"
+    assert result.get("type") == FlowResultType.FORM
+    assert result.get("step_id") == "manual"
 
 
 # ---------------------------------------------------------------------------
 # Step: manual (credential entry)
 # ---------------------------------------------------------------------------
 
-@pytest.mark.asyncio
 async def test_manual_step_success(hass: HomeAssistant, mock_client):
     """Valid credentials should create a config entry."""
     with patch(
@@ -60,14 +57,10 @@ async def test_manual_step_success(hass: HomeAssistant, mock_client):
         return_value=mock_client,
     ):
         result = await _start_flow(hass)
-
-        # Choose manual
         result = await hass.config_entries.flow.async_configure(
             result["flow_id"],
             user_input={"discovery_method": "manual"},
         )
-
-        # Submit credentials
         result = await hass.config_entries.flow.async_configure(
             result["flow_id"],
             user_input={
@@ -77,12 +70,12 @@ async def test_manual_step_success(hass: HomeAssistant, mock_client):
             },
         )
 
-    assert result["type"] == FlowResultType.CREATE_ENTRY
-    assert result["data"]["host"] == TEST_HOST
-    assert result["data"]["port"] == TEST_PORT
+    assert result.get("type") == FlowResultType.CREATE_ENTRY
+    data = result.get("data") or {}
+    assert data.get("host") == TEST_HOST
+    assert data.get("port") == TEST_PORT
 
 
-@pytest.mark.asyncio
 async def test_manual_step_cannot_connect(hass: HomeAssistant):
     """A connection failure should show an error and stay on the form."""
     from custom_components.usr_r16.errors import CannotConnect
@@ -105,11 +98,11 @@ async def test_manual_step_cannot_connect(hass: HomeAssistant):
             },
         )
 
-    assert result["type"] == FlowResultType.FORM
-    assert result["errors"]["base"] == "cannot_connect"
+    assert result.get("type") == FlowResultType.FORM
+    errors = result.get("errors") or {}
+    assert errors.get("base") == "cannot_connect"
 
 
-@pytest.mark.asyncio
 async def test_manual_step_already_configured(hass: HomeAssistant, mock_client):
     """Submitting a duplicate device should show an error."""
     with patch(
@@ -140,5 +133,6 @@ async def test_manual_step_already_configured(hass: HomeAssistant, mock_client):
             user_input={"host": TEST_HOST, "port": TEST_PORT, "password": TEST_PASSWORD},
         )
 
-    assert result["type"] == FlowResultType.FORM
-    assert result["errors"]["base"] == "already_configured"
+    assert result.get("type") == FlowResultType.FORM
+    errors = result.get("errors") or {}
+    assert errors.get("base") == "already_configured"

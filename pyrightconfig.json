@@ -8,11 +8,8 @@
   ],
   "exclude": [
     ".git",
-    ".venv",
     "reports"
   ],
-  "venvPath": ".",
-  "venv": ".venv",
   "reportMissingImports": false,
   "reportMissingModuleSource": false
 }

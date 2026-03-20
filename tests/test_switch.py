@@ -1,5 +1,5 @@
 """Tests for the USR-R16 switch platform."""
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from homeassistant.core import HomeAssistant
@@ -8,14 +8,14 @@ from custom_components.usr_r16 import DATA_DEVICE_REGISTER
 from custom_components.usr_r16.const import DOMAIN
 from custom_components.usr_r16.switch import R16Switch
 
-from .conftest import TEST_ENTRY_ID
+TEST_ENTRY_ID = "test_entry_id"
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _make_switch(port: int = 1, client=None):
+def _make_switch(port: int = 1, client=None) -> R16Switch:
     """Instantiate an R16Switch with a mock client."""
     if client is None:
         client = MagicMock()
@@ -29,28 +29,28 @@ def _make_switch(port: int = 1, client=None):
 
 
 # ---------------------------------------------------------------------------
-# Basic attributes
+# Basic attributes — pure unit tests, no hass needed
 # ---------------------------------------------------------------------------
 
-def test_unique_id():
+def test_unique_id() -> None:
     """Each relay channel should have a unique ID based on entry + port."""
     sw = _make_switch(port=3)
     assert sw.unique_id == f"{TEST_ENTRY_ID}_3"
 
 
-def test_name():
-    """Entity name should include the domain and port number."""
+def test_name() -> None:
+    """Entity name should include the port number."""
     sw = _make_switch(port=5)
     assert "5" in str(sw.name)
 
 
-def test_should_poll_is_false():
+def test_should_poll_is_false() -> None:
     """Integration uses push updates — polling must be disabled."""
     sw = _make_switch()
     assert sw.should_poll is False
 
 
-def test_available_reflects_connection():
+def test_available_reflects_connection() -> None:
     """Availability should mirror the client connection state."""
     client = MagicMock()
     client.is_connected = True
@@ -63,23 +63,23 @@ def test_available_reflects_connection():
     assert sw.available is False
 
 
-def test_translation_key():
+def test_translation_key() -> None:
     """Switch should declare the 'relay' translation key."""
     sw = _make_switch()
     assert sw._attr_translation_key == "relay"
 
 
 # ---------------------------------------------------------------------------
-# State
+# State — pure unit tests, no hass needed
 # ---------------------------------------------------------------------------
 
-def test_initial_is_on_is_none():
+def test_initial_is_on_is_none() -> None:
     """Before the first status fetch, is_on should be None."""
     sw = _make_switch()
     assert sw.is_on is None
 
 
-def test_event_callback_updates_state():
+def test_event_callback_updates_state() -> None:
     """handle_event_callback should update _attr_is_on."""
     sw = _make_switch()
     sw.hass = MagicMock()
@@ -93,27 +93,24 @@ def test_event_callback_updates_state():
 
 
 # ---------------------------------------------------------------------------
-# Commands
+# Commands — async, no hass needed
 # ---------------------------------------------------------------------------
 
-@pytest.mark.asyncio
-async def test_turn_on_calls_client(hass: HomeAssistant):
+async def test_turn_on_calls_client() -> None:
     """async_turn_on should delegate to client.turn_on."""
     sw = _make_switch(port=2)
     await sw.async_turn_on()
     sw._client.turn_on.assert_called_once_with("2")
 
 
-@pytest.mark.asyncio
-async def test_turn_off_calls_client(hass: HomeAssistant):
+async def test_turn_off_calls_client() -> None:
     """async_turn_off should delegate to client.turn_off."""
     sw = _make_switch(port=4)
     await sw.async_turn_off()
     sw._client.turn_off.assert_called_once_with("4")
 
 
-@pytest.mark.asyncio
-async def test_toggle_calls_client(hass: HomeAssistant):
+async def test_toggle_calls_client() -> None:
     """async_toggle should delegate to client.toggle."""
     sw = _make_switch(port=7)
     await sw.async_toggle()
@@ -121,10 +118,13 @@ async def test_toggle_calls_client(hass: HomeAssistant):
 
 
 # ---------------------------------------------------------------------------
-# 16 relays created
+# 16 relays created — needs hass, must be async
 # ---------------------------------------------------------------------------
 
-def test_sixteen_relays_created(hass: HomeAssistant, mock_client, mock_config_entry):
+@pytest.mark.usefixtures("enable_custom_integrations")
+async def test_sixteen_relays_created(
+    hass: HomeAssistant, mock_client, mock_config_entry
+) -> None:
     """devices_from_entities should return exactly 16 R16Switch instances."""
     from custom_components.usr_r16.switch import devices_from_entities
 
@@ -135,6 +135,5 @@ def test_sixteen_relays_created(hass: HomeAssistant, mock_client, mock_config_en
 
     assert len(devices) == 16
     assert all(isinstance(d, R16Switch) for d in devices)
-    # Port numbers should run from 1 to 16
     ports = [d._device_port for d in devices]
     assert ports == [str(i) for i in range(1, 17)]

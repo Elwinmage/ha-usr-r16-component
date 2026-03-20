@@ -1,0 +1,53 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Configuration USR-R16",
+        "description": "Comment souhaitez-vous ajouter votre appareil USR-R16 ?",
+        "data": {
+          "discovery_method": "Méthode d'ajout"
+        },
+        "data_description": {
+          "discovery_method": "La détection automatique scanne votre réseau local. La saisie manuelle permet d'entrer l'adresse IP directement."
+        }
+      },
+      "select": {
+        "title": "Appareils détectés",
+        "description": "Sélectionnez un appareil trouvé sur votre réseau, ou choisissez de saisir les informations manuellement.",
+        "data": {
+          "selected_device": "Appareil"
+        }
+      },
+      "manual": {
+        "title": "Connexion à l'appareil",
+        "description": "Entrez les informations de connexion de votre carte relais USR-R16.",
+        "data": {
+          "host": "Hôte",
+          "port": "Port",
+          "password": "Mot de passe"
+        },
+        "data_description": {
+          "host": "Adresse IP de votre appareil USR-R16 sur le réseau local.",
+          "port": "Port TCP de l'appareil (défaut : 8899).",
+          "password": "Mot de passe de l'appareil (défaut : admin)."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Impossible de se connecter à l'appareil. Vérifiez l'hôte, le port et le mot de passe.",
+      "already_configured": "Cet appareil est déjà configuré.",
+      "no_devices_found": "Aucun nouvel appareil USR-R16 trouvé sur le réseau. Veuillez saisir les informations manuellement.",
+      "unknown": "Une erreur inattendue s'est produite."
+    },
+    "abort": {
+      "already_configured": "Cet appareil est déjà configuré."
+    }
+  },
+  "entity": {
+    "switch": {
+      "relay": {
+        "name": "Relais {channel}"
+      }
+    }
+  }
+}

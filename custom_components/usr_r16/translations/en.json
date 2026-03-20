@@ -22,9 +22,9 @@
         "title": "Device Connection",
         "description": "Enter the connection details for your USR-R16 relay board.",
         "data": {
-          "host": "[%key:common::config_flow::data::host%]",
-          "port": "[%key:common::config_flow::data::port%]",
-          "password": "[%key:common::config_flow::data::password%]"
+          "host": "Host",
+          "port": "Port",
+          "password": "Password"
         },
         "data_description": {
           "host": "IP address of your USR-R16 device on the local network.",
@@ -34,13 +34,13 @@
       }
     },
     "error": {
-      "cannot_connect": "[%key:common::config_flow::error::cannot_connect%]",
-      "already_configured": "[%key:common::config_flow::abort::already_configured_device%]",
+      "cannot_connect": "Failed to connect to the device. Check the host, port and password.",
+      "already_configured": "This device is already configured.",
       "no_devices_found": "No new USR-R16 device found on the network. Please enter the details manually.",
-      "unknown": "[%key:common::config_flow::error::unknown%]"
+      "unknown": "Unexpected error occurred."
     },
     "abort": {
-      "already_configured": "[%key:common::config_flow::abort::already_configured_device%]"
+      "already_configured": "This device is already configured."
     }
   },
   "entity": {

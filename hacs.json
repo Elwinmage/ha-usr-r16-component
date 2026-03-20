@@ -1,8 +1,5 @@
 {
-    "name": "USR-R16 Perso",
-    "domains": ["switch"],
-    "render_readme": true,
-    "homeassistant": "2022.7.5",
-    "country": ["CN"],
-    "iot_class": ["Assumed State", "Local Push"]
-  }	
+  "name": "USR-R16",
+  "render_readme": true,
+  "homeassistant": "2022.7.5"
+}

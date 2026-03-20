@@ -1,0 +1,88 @@
+name: HA and HACS
+
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: "0 0 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  validate-hassfest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Hassfest validation
+        uses: home-assistant/actions/hassfest@master
+
+  validate-hacs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: HACS validation
+        uses: hacs/action@main
+        with:
+          category: integration
+
+  tests:
+    runs-on: ubuntu-latest
+    needs: [validate-hassfest, validate-hacs]
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.13"]
+        ha-version: ["stable", "beta"]
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest-homeassistant-custom-component
+
+          # Extract requirements from manifest and install them
+          python -c "import json; print('\n'.join(json.load(open('custom_components/usr_r16/manifest.json'))['requirements']))" > requirements_manifest.txt
+          pip install -r requirements_manifest.txt
+
+          if [[ "${{ matrix.ha-version }}" == "stable" ]]; then
+            pip install homeassistant
+          else
+            pip install --pre homeassistant
+          fi
+
+      - name: Run Pytest
+        run: |
+          pytest --cov=custom_components --cov-report=xml
+
+      - name: Upload coverage to Codecov
+        if: matrix.ha-version == 'stable'
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./coverage.xml
+
+      - name: Update coverage badge
+        if: github.event_name == 'push' && matrix.ha-version == 'stable'
+        run: |
+          pip install genbadge[coverage]
+          mkdir -p badges
+          genbadge coverage -i coverage.xml -o badges/coverage.svg
+          if [ -n "$(git status --porcelain badges/coverage.svg)" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add badges/coverage.svg
+            git commit -m "chore: update coverage badge"
+            git push
+          fi

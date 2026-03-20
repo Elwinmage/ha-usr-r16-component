@@ -1,5 +1,5 @@
-  
 """Errors for the USR-R16 component."""
+
 from homeassistant.exceptions import HomeAssistantError
 
 

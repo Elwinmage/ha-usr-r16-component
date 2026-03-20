@@ -1,0 +1,8 @@
+{
+  "pythonVersion": "3.13",
+  "typeCheckingMode": "standard",
+  "include": ["custom_components", "scripts", "tests"],
+  "exclude": [".git", "reports"],
+  "reportMissingImports": false,
+  "reportMissingModuleSource": false
+}

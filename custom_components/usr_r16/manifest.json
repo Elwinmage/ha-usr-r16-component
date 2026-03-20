@@ -1,15 +1,12 @@
 {
-    "domain": "usr_r16",
-    "name": "USR r16",
-    "version": "1.0.0",
-    "documentation": "https://github.com/Elwinmage/ha-usr-r16-component",
-    "issue_tracker": "https://github.com/Elwinmage/ha-usr-r16-component/issues",
-    "requirements": [
-      "usr-r16==0.0.4"
-    ],
-    "dependencies": [],
-    "codeowners": [
-      "@Elwinmage"
-    ],
-    "config_flow": true
-  }
+  "domain": "usr_r16",
+  "name": "USR r16",
+  "codeowners": ["@Elwinmage"],
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "https://github.com/Elwinmage/ha-usr-r16-component",
+  "iot_class": "local_push",
+  "issue_tracker": "https://github.com/Elwinmage/ha-usr-r16-component/issues",
+  "requirements": ["usr-r16==0.0.4"],
+  "version": "1.0.0"
+}

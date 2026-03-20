@@ -64,7 +64,8 @@ async def test_manual_step_success(hass: HomeAssistant, mock_client) -> None:
                 "password": TEST_PASSWORD,
             },
         )
-
+        # Wait for the connect() task to complete inside the patch context
+        await hass.async_block_till_done()
     assert result.get("type") == FlowResultType.CREATE_ENTRY
     data = result.get("data") or {}
     assert data.get("host") == TEST_HOST

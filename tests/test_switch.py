@@ -16,10 +16,12 @@ ALL_OFF = {str(i): False for i in range(1, 17)}
 def _make_coordinator(hass, states=None):
     """Return a mock-backed coordinator with data pre-set."""
     from homeassistant.config_entries import ConfigEntry
+
     entry = MagicMock(spec=ConfigEntry)
     entry.entry_id = TEST_ENTRY_ID
     entry.domain = DOMAIN
     entry.data = {"host": "192.168.1.1", "port": 8899, "password": "admin"}
+    entry.options = {}
 
     coord = USR16Coordinator(hass, entry)
     coord._entry = entry  # ensure _entry is always set
@@ -30,6 +32,7 @@ def _make_coordinator(hass, states=None):
 # ---------------------------------------------------------------------------
 # Basic attributes
 # ---------------------------------------------------------------------------
+
 
 def test_unique_id(hass: HomeAssistant) -> None:
     coord = _make_coordinator(hass)
@@ -53,6 +56,7 @@ def test_translation_key(hass: HomeAssistant) -> None:
 # is_on reads from coordinator data
 # ---------------------------------------------------------------------------
 
+
 def test_is_on_false(hass: HomeAssistant) -> None:
     coord = _make_coordinator(hass, {str(i): False for i in range(1, 17)})
     sw = R16Switch(coord, "1")
@@ -70,10 +74,12 @@ def test_is_on_true(hass: HomeAssistant) -> None:
 def test_is_on_none_when_no_data(hass: HomeAssistant) -> None:
     """is_on should return None when coordinator has no data yet."""
     from homeassistant.config_entries import ConfigEntry
+
     entry = MagicMock(spec=ConfigEntry)
     entry.entry_id = TEST_ENTRY_ID
     entry.domain = DOMAIN
     entry.data = {"host": "192.168.1.1", "port": 8899, "password": "admin"}
+    entry.options = {}
     coord = USR16Coordinator(hass, entry)
     # Do NOT call async_set_updated_data — data stays None
     sw = R16Switch(coord, "1")
@@ -96,6 +102,7 @@ def test_coordinator_update_triggers_state_write(hass: HomeAssistant) -> None:
 # ---------------------------------------------------------------------------
 # Relay commands delegate to coordinator
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_turn_on(hass: HomeAssistant) -> None:
@@ -128,22 +135,24 @@ async def test_toggle(hass: HomeAssistant) -> None:
 # 16 entities created
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 @pytest.mark.usefixtures("enable_custom_integrations")
 async def test_sixteen_switches_created(hass: HomeAssistant) -> None:
     from custom_components.usr_r16.switch import async_setup_entry
-    from unittest.mock import patch
 
     coord = _make_coordinator(hass)
     hass.data.setdefault(DOMAIN, {})[TEST_ENTRY_ID] = coord
 
     from homeassistant.config_entries import ConfigEntry
+
     entry = MagicMock(spec=ConfigEntry)
     entry.entry_id = TEST_ENTRY_ID
 
     added = []
-    def fake_add(entities, update_before_add: bool = False):
-        added.extend(entities)
+
+    def fake_add(new_entities, update_before_add: bool = False):
+        added.extend(new_entities)
 
     await async_setup_entry(hass, entry, fake_add)
 

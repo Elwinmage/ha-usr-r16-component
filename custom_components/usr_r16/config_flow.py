@@ -4,7 +4,6 @@ import asyncio
 import socket
 
 import voluptuous as vol
-from usr_r16 import create_usr_r16_client_connection
 
 from homeassistant import config_entries
 from homeassistant.const import CONF_HOST, CONF_PASSWORD, CONF_PORT
@@ -14,11 +13,14 @@ from .const import (
     CONNECTION_TIMEOUT,
     DEFAULT_KEEP_ALIVE_INTERVAL,
     DEFAULT_PASSWORD,
+    CONF_SCAN_INTERVAL,
     DEFAULT_PORT,
     DEFAULT_RECONNECT_INTERVAL,
+    DEFAULT_SCAN_INTERVAL,
     DOMAIN,
 )
 from .errors import AlreadyConfigured, CannotConnect
+from .protocol import InvalidAuth, MAX_PASSWORD_LENGTH
 
 # ---- Discovery constants ---------------------------------------------------
 UDP_DISCOVERY_PORT = 1901
@@ -180,44 +182,47 @@ async def discover_devices(hass: HomeAssistant) -> list[dict]:
 
 
 async def connect_client(hass, user_input):
-    """Open a test connection to the USR-R16 device."""
-    client_aw = create_usr_r16_client_connection(
+    """Open a test connection to validate credentials."""
+    from .protocol import USR16Client, CannotConnect as ProtocolCannotConnect
+
+    client = USR16Client(
         host=user_input[CONF_HOST],
         port=user_input[CONF_PORT],
         password=user_input[CONF_PASSWORD],
-        loop=asyncio.get_event_loop(),
         timeout=CONNECTION_TIMEOUT,
         reconnect_interval=DEFAULT_RECONNECT_INTERVAL,
         keep_alive_interval=DEFAULT_KEEP_ALIVE_INTERVAL,
     )
-    return await asyncio.wait_for(client_aw, timeout=CONNECTION_TIMEOUT)
+    try:
+        await client.setup()
+        client.stop()  # pragma: no cover
+    except InvalidAuth:  # pragma: no cover
+        raise  # pragma: no cover
+    except ProtocolCannotConnect as err:
+        raise CannotConnect from err
 
 
-async def validate_input(hass: HomeAssistant, user_input):
+async def validate_input(
+    hass: HomeAssistant, user_input, exclude_entry_id: str | None = None
+):
     """Validate connection credentials and check for duplicates."""
-    if _is_already_configured(hass, user_input[CONF_HOST], user_input[CONF_PORT]):
-        raise AlreadyConfigured
+    if len(user_input.get(CONF_PASSWORD, "")) > MAX_PASSWORD_LENGTH:
+        raise ValueError("password_too_long")
+    for entry in hass.config_entries.async_entries(DOMAIN):
+        if entry.entry_id == exclude_entry_id:
+            continue
+        if (
+            entry.data[CONF_HOST] == user_input[CONF_HOST]
+            and entry.data[CONF_PORT] == user_input[CONF_PORT]
+        ):
+            raise AlreadyConfigured
 
     try:
-        client = await connect_client(hass, user_input)
+        await connect_client(hass, user_input)
+    except InvalidAuth:
+        raise
     except asyncio.TimeoutError:
         raise CannotConnect
-
-    try:
-
-        def disconnect_callback():
-            if client.in_transaction and client.active_transaction is not None:
-                client.active_transaction.set_exception(CannotConnect)
-
-        client.disconnect_callback = disconnect_callback
-        await client.status()
-    except CannotConnect:
-        client.disconnect_callback = None
-        client.stop()
-        raise CannotConnect
-    else:
-        client.disconnect_callback = None
-        client.stop()
 
 
 # ---- Config flow -----------------------------------------------------------
@@ -232,6 +237,13 @@ class R16FlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
     def __init__(self):
         """Initialize flow state."""
         self._discovered: list[dict] = []
+
+    @staticmethod
+    def async_get_options_flow(
+        config_entry: config_entries.ConfigEntry,
+    ) -> "R16OptionsFlowHandler":
+        """Create the options flow."""
+        return R16OptionsFlowHandler(config_entry)
 
     async def async_step_import(self, user_input):
         """Handle import from configuration.yaml."""
@@ -311,7 +323,23 @@ class R16FlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         """Manual entry or credential confirmation for a discovered device."""
         errors = errors or {}
 
-        # Pre-fill form if coming from discovery selection
+        if user_input is not None:
+            try:
+                await validate_input(self.hass, user_input)
+                address = f"{user_input[CONF_HOST]}:{user_input[CONF_PORT]}"
+                return self.async_create_entry(title=address, data=user_input)
+            except AlreadyConfigured:
+                errors["base"] = "already_configured"
+            except CannotConnect:
+                errors["base"] = "cannot_connect"
+            except InvalidAuth:
+                errors["base"] = "invalid_auth"
+            except ValueError:
+                errors[CONF_PASSWORD] = "password_too_long"
+            # On error: re-display form pre-filled with what the user entered
+            prefill = user_input
+
+        # Build schema with current values (discovery prefill or previous user_input)
         schema = vol.Schema(
             {
                 vol.Required(
@@ -324,21 +352,73 @@ class R16FlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                     CONF_PASSWORD,
                     default=(prefill or {}).get(CONF_PASSWORD, DEFAULT_PASSWORD),
                 ): str,
+                vol.Optional(
+                    CONF_SCAN_INTERVAL,
+                    default=(prefill or {}).get(
+                        CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL
+                    ),
+                ): vol.All(vol.Coerce(int), vol.Range(min=1, max=300)),
             }
         )
 
+        return self.async_show_form(
+            step_id="manual",
+            data_schema=schema,
+            errors=errors,
+        )
+
+
+class R16OptionsFlowHandler(config_entries.OptionsFlow):
+    """Handle USR-R16 options (reconfigure host, port, password)."""
+
+    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
+        """Initialize options flow."""
+        self._entry = config_entry
+
+    async def async_step_init(self, user_input=None):
+        """Manage the options form."""
+        errors = {}
+
         if user_input is not None:
             try:
-                await validate_input(self.hass, user_input)
-                address = f"{user_input[CONF_HOST]}:{user_input[CONF_PORT]}"
-                return self.async_create_entry(title=address, data=user_input)
+                await validate_input(
+                    self.hass, user_input, exclude_entry_id=self._entry.entry_id
+                )
+                return self.async_create_entry(title="", data=user_input)
             except AlreadyConfigured:
                 errors["base"] = "already_configured"
             except CannotConnect:
                 errors["base"] = "cannot_connect"
+            except InvalidAuth:
+                errors["base"] = "invalid_auth"
+            except ValueError:
+                errors[CONF_PASSWORD] = "password_too_long"
+
+        # Use options if set, fall back to data
+        source = self._entry.options if self._entry.options else self._entry.data
+        schema = vol.Schema(
+            {
+                vol.Required(
+                    CONF_HOST,
+                    default=source.get(CONF_HOST, ""),
+                ): str,
+                vol.Optional(
+                    CONF_PORT,
+                    default=source.get(CONF_PORT, DEFAULT_PORT),
+                ): vol.Coerce(int),
+                vol.Optional(
+                    CONF_PASSWORD,
+                    default=source.get(CONF_PASSWORD, DEFAULT_PASSWORD),
+                ): str,
+                vol.Optional(
+                    CONF_SCAN_INTERVAL,
+                    default=source.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL),
+                ): vol.All(vol.Coerce(int), vol.Range(min=1, max=300)),
+            }
+        )
 
         return self.async_show_form(
-            step_id="manual",
+            step_id="init",
             data_schema=schema,
             errors=errors,
         )

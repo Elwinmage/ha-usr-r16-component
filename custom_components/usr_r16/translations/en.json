@@ -24,20 +24,22 @@
         "data": {
           "host": "Host",
           "port": "Port",
-          "password": "Password"
+          "password": "Password",
+          "scan_interval": "Refresh interval (seconds)"
         },
         "data_description": {
           "host": "IP address of your USR-R16 device on the local network.",
           "port": "TCP port of the device (default: 8899).",
-          "password": "Device password (default: admin)."
+          "password": "Device password (default: admin).",
+          "scan_interval": "How often to poll the device for relay states. Minimum: 1s, maximum: 300s. Push updates are always immediate."
         }
       }
     },
     "error": {
-      "cannot_connect": "Failed to connect to the device. Check the host, port and password.",
       "already_configured": "This device is already configured.",
-      "no_devices_found": "No new USR-R16 device found on the network. Please enter the details manually.",
-      "unknown": "Unexpected error occurred."
+      "cannot_connect": "Cannot connect to the device.",
+      "invalid_auth": "Authentication failed — check your password.",
+      "password_too_long": "Password must be 5 characters or fewer."
     },
     "abort": {
       "already_configured": "This device is already configured."
@@ -48,6 +50,32 @@
       "relay": {
         "name": "Relay {channel}"
       }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Reconfigure USR-R16",
+        "description": "Update the connection settings for this device.",
+        "data": {
+          "host": "Host",
+          "port": "Port",
+          "password": "Password",
+          "scan_interval": "Refresh interval (seconds)"
+        },
+        "data_description": {
+          "host": "IP address of the USR-R16 device.",
+          "port": "TCP port (default: 8899).",
+          "password": "Device password (default: admin).",
+          "scan_interval": "How often to poll the device for relay states. Minimum: 1s, maximum: 300s. Push updates are always immediate."
+        }
+      }
+    },
+    "error": {
+      "already_configured": "This device is already configured.",
+      "cannot_connect": "Cannot connect to the device.",
+      "invalid_auth": "Authentication failed — check your password.",
+      "password_too_long": "Password must be 5 characters or fewer."
     }
   }
 }

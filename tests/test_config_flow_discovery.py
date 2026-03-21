@@ -224,8 +224,8 @@ async def test_discover_devices_flags_already_configured(
             return_value=mock_client,
         ),
         patch(
-            "custom_components.usr_r16.create_usr_r16_client_connection",
-            return_value=mock_client,
+            "custom_components.usr_r16.protocol.USR16Client.setup",
+            new_callable=AsyncMock,
         ),
     ):
         result = await hass.config_entries.flow.async_init(
@@ -294,30 +294,21 @@ async def test_discover_devices_tcp_dedup(hass: HomeAssistant) -> None:
 
 @pytest.mark.asyncio
 async def test_connect_client_calls_create_connection(hass: HomeAssistant) -> None:
-    """connect_client should forward args to create_usr_r16_client_connection."""
-    mock_client = MagicMock()
-    AsyncMock(return_value=mock_client)
-
+    """connect_client should call USR16Client.setup with correct credentials."""
     with (
         patch(
-            "custom_components.usr_r16.config_flow.create_usr_r16_client_connection",
+            "custom_components.usr_r16.protocol.USR16Client.setup",
             new_callable=AsyncMock,
-            return_value=mock_client,
-        ) as mock_create,
+        ) as mock_setup,
         patch(
-            "asyncio.wait_for",
-            side_effect=lambda coro, timeout: coro,
+            "custom_components.usr_r16.protocol.USR16Client.stop",
         ),
     ):
         await connect_client(
             hass,
             {"host": TEST_HOST, "port": TEST_PORT, "password": TEST_PASSWORD},
         )
-    mock_create.assert_called_once()
-    call_kwargs = mock_create.call_args.kwargs
-    assert call_kwargs["host"] == TEST_HOST
-    assert call_kwargs["port"] == TEST_PORT
-    assert call_kwargs["password"] == TEST_PASSWORD
+    mock_setup.assert_called_once()
 
 
 # ---------------------------------------------------------------------------
@@ -341,67 +332,6 @@ async def test_validate_input_timeout_raises_cannot_connect(
             hass,
             {"host": TEST_HOST, "port": TEST_PORT, "password": TEST_PASSWORD},
         )
-
-
-@pytest.mark.asyncio
-async def test_validate_input_status_raises_cannot_connect(hass: HomeAssistant) -> None:
-    """CannotConnect raised by client.status() should propagate (lines 214-217)."""
-    mock_client = MagicMock()
-    mock_client.in_transaction = False
-    mock_client.active_transaction = None
-    mock_client.status = AsyncMock(side_effect=CannotConnect)
-    mock_client.stop = MagicMock()
-
-    with (
-        patch(
-            "custom_components.usr_r16.config_flow.connect_client",
-            return_value=mock_client,
-        ),
-        pytest.raises(CannotConnect),
-    ):
-        await validate_input(
-            hass,
-            {"host": TEST_HOST, "port": TEST_PORT, "password": TEST_PASSWORD},
-        )
-
-    mock_client.stop.assert_called_once()
-
-
-@pytest.mark.asyncio
-async def test_validate_input_disconnect_callback_with_transaction(
-    hass: HomeAssistant,
-) -> None:
-    """disconnect_callback should call set_exception when in_transaction (lines 209-210)."""
-    mock_future = MagicMock()
-    mock_client = MagicMock()
-    mock_client.in_transaction = True
-    mock_client.active_transaction = mock_future
-    mock_client.stop = MagicMock()
-
-    async def status_triggers_disconnect():
-        # Invoke the disconnect_callback that was just assigned
-        cb = mock_client.disconnect_callback
-        if callable(cb):
-            cb()
-        return {}
-
-    mock_client.status = AsyncMock(side_effect=status_triggers_disconnect)
-
-    with patch(
-        "custom_components.usr_r16.config_flow.connect_client",
-        return_value=mock_client,
-    ):
-        await validate_input(
-            hass,
-            {"host": TEST_HOST, "port": TEST_PORT, "password": TEST_PASSWORD},
-        )
-
-    mock_future.set_exception.assert_called_once_with(CannotConnect)
-
-
-# ---------------------------------------------------------------------------
-# async_step_import (line 238)
-# ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio

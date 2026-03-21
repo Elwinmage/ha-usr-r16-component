@@ -24,20 +24,22 @@
         "data": {
           "host": "Hôte",
           "port": "Port",
-          "password": "Mot de passe"
+          "password": "Mot de passe",
+          "scan_interval": "Intervalle de rafraîchissement (secondes)"
         },
         "data_description": {
           "host": "Adresse IP de votre appareil USR-R16 sur le réseau local.",
           "port": "Port TCP de l'appareil (défaut : 8899).",
-          "password": "Mot de passe de l'appareil (défaut : admin)."
+          "password": "Mot de passe de l'appareil (défaut : admin).",
+          "scan_interval": "Fréquence d'interrogation de l'appareil. Min: 1s, max: 300s. Les mises à jour push restent immédiates."
         }
       }
     },
     "error": {
-      "cannot_connect": "Impossible de se connecter à l'appareil. Vérifiez l'hôte, le port et le mot de passe.",
       "already_configured": "Cet appareil est déjà configuré.",
-      "no_devices_found": "Aucun nouvel appareil USR-R16 trouvé sur le réseau. Veuillez saisir les informations manuellement.",
-      "unknown": "Une erreur inattendue s'est produite."
+      "cannot_connect": "Impossible de se connecter à l'appareil.",
+      "invalid_auth": "Authentification échouée — vérifiez votre mot de passe.",
+      "password_too_long": "Le mot de passe ne peut pas dépasser 5 caractères."
     },
     "abort": {
       "already_configured": "Cet appareil est déjà configuré."
@@ -48,6 +50,32 @@
       "relay": {
         "name": "Relais {channel}"
       }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Reconfigurer le USR-R16",
+        "description": "Modifier les paramètres de connexion de cet appareil.",
+        "data": {
+          "host": "Hôte",
+          "port": "Port",
+          "password": "Mot de passe",
+          "scan_interval": "Intervalle de rafraîchissement (secondes)"
+        },
+        "data_description": {
+          "host": "Adresse IP de l'appareil USR-R16.",
+          "port": "Port TCP (défaut : 8899).",
+          "password": "Mot de passe de l'appareil (défaut : admin).",
+          "scan_interval": "Fréquence d'interrogation de l'appareil. Min: 1s, max: 300s. Les mises à jour push restent immédiates."
+        }
+      }
+    },
+    "error": {
+      "already_configured": "Cet appareil est déjà configuré.",
+      "cannot_connect": "Impossible de se connecter à l'appareil.",
+      "invalid_auth": "Authentification échouée — vérifiez votre mot de passe.",
+      "password_too_long": "Le mot de passe ne peut pas dépasser 5 caractères."
     }
   }
 }

@@ -13,3 +13,7 @@ class AlreadyConfigured(R16Exception):
 
 class CannotConnect(R16Exception):
     """Unable to connect to the USR-R16."""
+
+
+class InvalidAuth(Exception):
+    """Error to indicate wrong password."""

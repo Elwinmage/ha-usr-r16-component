@@ -1,7 +1,10 @@
 # USR-R16 for Home Assistant 🔌
 
 <p align="center">
-  <img src="custom_components/usr_r16/brands/logo.png" width="50%"/>
+  <img src="custom_components/usr_r16/brand/logo.png" width="50%"/>
+</p>
+<p align="center">
+  <img src="doc/img/card.png" width="50%"/>
 </p>
 
 [![HACS Badge](https://img.shields.io/badge/HACS-Default-41BDF5.svg?style=flat-square)](https://github.com/hacs/default)

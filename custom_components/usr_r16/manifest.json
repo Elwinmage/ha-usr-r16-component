@@ -7,6 +7,6 @@
   "documentation": "https://github.com/Elwinmage/ha-usr-r16-component",
   "iot_class": "local_push",
   "issue_tracker": "https://github.com/Elwinmage/ha-usr-r16-component/issues",
-  "requirements": ["usr-r16==0.0.4"],
+  "requirements": [],
   "version": "1.0.0"
 }

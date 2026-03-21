@@ -1,169 +1,161 @@
-"""Tests for the USR-R16 switch platform."""
+"""Tests for the USR-R16 switch entities (coordinator-based)."""
 
 from unittest.mock import AsyncMock, MagicMock
 
-
 import pytest
-
 from homeassistant.core import HomeAssistant
 
-
-from custom_components.usr_r16 import DATA_DEVICE_REGISTER
-
+from custom_components.usr_r16 import USR16Coordinator
 from custom_components.usr_r16.const import DOMAIN
-
 from custom_components.usr_r16.switch import R16Switch
 
-
 TEST_ENTRY_ID = "test_entry_id"
+ALL_OFF = {str(i): False for i in range(1, 17)}
 
 
-def _make_switch(port: int = 1, client=None) -> R16Switch:
+def _make_coordinator(hass, states=None):
+    """Return a mock-backed coordinator with data pre-set."""
+    from homeassistant.config_entries import ConfigEntry
 
-    if client is None:
-        client = MagicMock()
+    entry = MagicMock(spec=ConfigEntry)
+    entry.entry_id = TEST_ENTRY_ID
+    entry.domain = DOMAIN
+    entry.data = {"host": "192.168.1.1", "port": 8899, "password": "admin"}
+    entry.options = {}
 
-        client.is_connected = True
-
-        client.status_callbacks = {}
-
-        client.status = AsyncMock(return_value={str(port): False})
-
-        client.turn_on = AsyncMock()
-
-        client.turn_off = AsyncMock()
-
-        client.toggle = AsyncMock()
-
-    return R16Switch(port, TEST_ENTRY_ID, client)
+    coord = USR16Coordinator(hass, entry)
+    coord._entry = entry  # ensure _entry is always set
+    coord.async_set_updated_data(states if states is not None else dict(ALL_OFF))
+    return coord
 
 
 # ---------------------------------------------------------------------------
-
-# Pure unit tests — sync, no hass
-
+# Basic attributes
 # ---------------------------------------------------------------------------
 
 
-def test_unique_id() -> None:
-
-    assert _make_switch(port=3).unique_id == f"{TEST_ENTRY_ID}_3"
-
-
-def test_name() -> None:
-
-    assert "5" in str(_make_switch(port=5).name)
+def test_unique_id(hass: HomeAssistant) -> None:
+    coord = _make_coordinator(hass)
+    sw = R16Switch(coord, "3")
+    assert sw.unique_id == f"{TEST_ENTRY_ID}_3"
 
 
-def test_should_poll_is_false() -> None:
-
-    assert _make_switch().should_poll is False
-
-
-def test_available_reflects_connection() -> None:
-
-    client = MagicMock()
-
-    client.is_connected = True
-
-    client.status_callbacks = {}
-
-    sw = R16Switch(1, TEST_ENTRY_ID, client)
-
-    assert sw.available is True
-
-    sw._attr_available = False
-
-    assert sw.available is False
+def test_name(hass: HomeAssistant) -> None:
+    coord = _make_coordinator(hass)
+    sw = R16Switch(coord, "5")
+    assert "5" in str(sw.name)
 
 
-def test_translation_key() -> None:
-
-    assert _make_switch()._attr_translation_key == "relay"
-
-
-def test_initial_is_on_is_none() -> None:
-
-    assert _make_switch().is_on is None
+def test_translation_key(hass: HomeAssistant) -> None:
+    coord = _make_coordinator(hass)
+    sw = R16Switch(coord, "1")
+    assert sw._attr_translation_key == "relay"
 
 
-def test_event_callback_updates_state() -> None:
+# ---------------------------------------------------------------------------
+# is_on reads from coordinator data
+# ---------------------------------------------------------------------------
 
-    sw = _make_switch()
 
-    sw.hass = MagicMock()
+def test_is_on_false(hass: HomeAssistant) -> None:
+    coord = _make_coordinator(hass, {str(i): False for i in range(1, 17)})
+    sw = R16Switch(coord, "1")
+    assert sw.is_on is False
 
+
+def test_is_on_true(hass: HomeAssistant) -> None:
+    states = {str(i): False for i in range(1, 17)}
+    states["4"] = True
+    coord = _make_coordinator(hass, states)
+    sw = R16Switch(coord, "4")
+    assert sw.is_on is True
+
+
+def test_is_on_none_when_no_data(hass: HomeAssistant) -> None:
+    """is_on should return None when coordinator has no data yet."""
+    from homeassistant.config_entries import ConfigEntry
+
+    entry = MagicMock(spec=ConfigEntry)
+    entry.entry_id = TEST_ENTRY_ID
+    entry.domain = DOMAIN
+    entry.data = {"host": "192.168.1.1", "port": 8899, "password": "admin"}
+    entry.options = {}
+    coord = USR16Coordinator(hass, entry)
+    # Do NOT call async_set_updated_data — data stays None
+    sw = R16Switch(coord, "1")
+    assert sw.is_on is None
+
+
+def test_coordinator_update_triggers_state_write(hass: HomeAssistant) -> None:
+    coord = _make_coordinator(hass)
+    sw = R16Switch(coord, "2")
+    sw.hass = hass
     sw.async_write_ha_state = MagicMock()
 
-    sw.handle_event_callback(True)
+    # Simulate coordinator pushing new data
+    coord.async_set_updated_data({"2": True})
+    sw._handle_coordinator_update()
 
-    assert sw._attr_is_on is True
-
-    sw.handle_event_callback(False)
-
-    assert sw._attr_is_on is False
+    sw.async_write_ha_state.assert_called_once()
 
 
 # ---------------------------------------------------------------------------
-
-# Async tests — explicit mark, no hass
-
+# Relay commands delegate to coordinator
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
-async def test_turn_on_calls_client() -> None:
-
-    sw = _make_switch(port=2)
-
+async def test_turn_on(hass: HomeAssistant) -> None:
+    coord = _make_coordinator(hass)
+    coord.async_turn_on = AsyncMock()
+    sw = R16Switch(coord, "2")
     await sw.async_turn_on()
-
-    sw._client.turn_on.assert_called_once_with("2")
+    coord.async_turn_on.assert_called_once_with("2")
 
 
 @pytest.mark.asyncio
-async def test_turn_off_calls_client() -> None:
-
-    sw = _make_switch(port=4)
-
+async def test_turn_off(hass: HomeAssistant) -> None:
+    coord = _make_coordinator(hass)
+    coord.async_turn_off = AsyncMock()
+    sw = R16Switch(coord, "4")
     await sw.async_turn_off()
-
-    sw._client.turn_off.assert_called_once_with("4")
+    coord.async_turn_off.assert_called_once_with("4")
 
 
 @pytest.mark.asyncio
-async def test_toggle_calls_client() -> None:
-
-    sw = _make_switch(port=7)
-
+async def test_toggle(hass: HomeAssistant) -> None:
+    coord = _make_coordinator(hass)
+    coord.async_toggle = AsyncMock()
+    sw = R16Switch(coord, "7")
     await sw.async_toggle()
-
-    sw._client.toggle.assert_called_once_with("7")
+    coord.async_toggle.assert_called_once_with("7")
 
 
 # ---------------------------------------------------------------------------
-
-# Needs hass — explicit marks
-
+# 16 entities created
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
 @pytest.mark.usefixtures("enable_custom_integrations")
-async def test_sixteen_relays_created(
-    hass: HomeAssistant, mock_client, mock_config_entry
-) -> None:
+async def test_sixteen_switches_created(hass: HomeAssistant) -> None:
+    from custom_components.usr_r16.switch import async_setup_entry
 
-    from custom_components.usr_r16.switch import devices_from_entities
+    coord = _make_coordinator(hass)
+    hass.data.setdefault(DOMAIN, {})[TEST_ENTRY_ID] = coord
 
-    hass.data.setdefault(DOMAIN, {})
+    from homeassistant.config_entries import ConfigEntry
 
-    hass.data[DOMAIN][TEST_ENTRY_ID] = {DATA_DEVICE_REGISTER: mock_client}
+    entry = MagicMock(spec=ConfigEntry)
+    entry.entry_id = TEST_ENTRY_ID
 
-    devices = devices_from_entities(hass, mock_config_entry)
+    added = []
 
-    assert len(devices) == 16
+    def fake_add(new_entities, update_before_add: bool = False):
+        added.extend(new_entities)
 
-    assert all(isinstance(d, R16Switch) for d in devices)
+    await async_setup_entry(hass, entry, fake_add)
 
-    assert [d._device_port for d in devices] == [str(i) for i in range(1, 17)]
+    assert len(added) == 16
+    assert all(isinstance(e, R16Switch) for e in added)
+    assert [e._port for e in added] == [str(i) for i in range(1, 17)]

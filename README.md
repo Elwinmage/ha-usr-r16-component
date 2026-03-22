@@ -44,9 +44,6 @@ This is a fork of [blindlight86/HA_USR-R16](https://github.com/blindlight86/HA_U
 | Requirement | Version |
 |---|---|
 | Home Assistant | ≥ 2022.7.5 |
-| Python library | `usr-r16==0.0.4` |
-
-The Python dependency is installed automatically by Home Assistant.
 
 ---
 

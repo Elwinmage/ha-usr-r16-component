@@ -57,12 +57,6 @@ This is a fork of [blindlight86/HA_USR-R16](https://github.com/blindlight86/HA_U
 4. Search for **USR-R16** and click **Download**.
 5. Restart Home Assistant.
 
-### Manual
-
-1. Download or clone this repository.
-2. Copy the `custom_components/usr_r16/` folder into your Home Assistant `config/custom_components/` directory.
-3. Restart Home Assistant.
-
 ---
 
 ## Configuration

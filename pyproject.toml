@@ -6,3 +6,9 @@ asyncio_default_fixture_loop_scope = "function"
 exclude_lines = [
     "pragma: no cover",
 ]
+
+[tool.ruff]
+target-version = "py310" # Permet d'activer la syntaxe with (a, b):
+
+[tool.ruff.lint]
+select = ["E", "F", "SIM"] # Active flake8-simplify (SIM)

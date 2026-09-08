@@ -41,9 +41,16 @@ async def _start_flow(hass):
 
 def test_get_local_subnet_returns_cidr() -> None:
     """Should return a /24 subnet string derived from the local IP."""
-    subnet = _get_local_subnet()
-    assert "/" in subnet
-    assert subnet.endswith(".0/24")
+    mock_sock = MagicMock()
+    mock_sock.__enter__ = MagicMock(return_value=mock_sock)
+    mock_sock.__exit__ = MagicMock(return_value=False)
+    mock_sock.getsockname.return_value = ("10.0.0.42", 12345)
+
+    with patch(
+        "custom_components.usr_r16.config_flow.socket.socket", return_value=mock_sock
+    ):
+        subnet = _get_local_subnet()
+    assert subnet == "10.0.0.0/24"
 
 
 def test_get_local_subnet_fallback_on_error() -> None:
@@ -320,7 +327,9 @@ async def test_connect_client_calls_create_connection(hass: HomeAssistant) -> No
 async def test_validate_input_timeout_raises_cannot_connect(
     hass: HomeAssistant,
 ) -> None:
-    """TimeoutError from connect_client should be converted to CannotConnect (line 204)."""
+    """TimeoutError from connect_client should be converted
+    to CannotConnect (line 204).
+    """
     with (
         patch(
             "custom_components.usr_r16.config_flow.connect_client",

@@ -1,6 +1,6 @@
 """Tests for the USR-R16 switch entities (coordinator-based)."""
 
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from homeassistant.core import HomeAssistant
@@ -90,13 +90,13 @@ def test_coordinator_update_triggers_state_write(hass: HomeAssistant) -> None:
     coord = _make_coordinator(hass)
     sw = R16Switch(coord, "2")
     sw.hass = hass
-    sw.async_write_ha_state = MagicMock()
 
-    # Simulate coordinator pushing new data
-    coord.async_set_updated_data({"2": True})
-    sw._handle_coordinator_update()
+    with patch.object(sw, "async_write_ha_state") as mock_write:
+        # Simulate coordinator pushing new data
+        coord.async_set_updated_data({"2": True})
+        sw._handle_coordinator_update()
 
-    sw.async_write_ha_state.assert_called_once()
+        mock_write.assert_called_once()
 
 
 # ---------------------------------------------------------------------------

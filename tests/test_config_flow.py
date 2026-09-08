@@ -545,21 +545,23 @@ async def test_options_flow_password_too_long(hass: HomeAssistant, mock_client) 
 
 async def test_connect_client_protocol_cannot_connect(hass: HomeAssistant) -> None:
     """ProtocolCannotConnect should be re-raised as CannotConnect (lines 198-201)."""
+    from custom_components.usr_r16.config_flow import connect_client
+    from custom_components.usr_r16.errors import CannotConnect
     from custom_components.usr_r16.protocol import (
         CannotConnect as ProtocolCannotConnect,
     )
-    from custom_components.usr_r16.errors import CannotConnect
-    from custom_components.usr_r16.config_flow import connect_client
 
-    with patch(
-        "custom_components.usr_r16.protocol.USR16Client.setup",
-        side_effect=ProtocolCannotConnect("tcp error"),
+    with (
+        patch(
+            "custom_components.usr_r16.protocol.USR16Client.setup",
+            side_effect=ProtocolCannotConnect("tcp error"),
+        ),
+        pytest.raises(CannotConnect),
     ):
-        with pytest.raises(CannotConnect):
-            await connect_client(
-                hass,
-                {"host": TEST_HOST, "port": TEST_PORT, "password": TEST_PASSWORD},
-            )
+        await connect_client(
+            hass,
+            {"host": TEST_HOST, "port": TEST_PORT, "password": TEST_PASSWORD},
+        )
 
 
 async def test_connect_client_success_stops_client(hass: HomeAssistant) -> None:

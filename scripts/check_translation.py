@@ -91,10 +91,10 @@ if os.path.isfile(const_file):
     with open(const_file) as f:
         content = f.read()
     entity_domains = sorted(
-        set(
+        {
             x.replace("Platform.", "").lower()
             for x in re.findall(r"Platform\.[A-Z_]+", content)
-        )
+        }
     )
 
 # Also detect entity domains from Python files present in the integration folder

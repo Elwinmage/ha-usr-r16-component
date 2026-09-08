@@ -4,23 +4,23 @@ import asyncio
 import socket
 
 import voluptuous as vol
-
 from homeassistant import config_entries
 from homeassistant.const import CONF_HOST, CONF_PASSWORD, CONF_PORT
 from homeassistant.core import HomeAssistant
 
 from .const import (
+    CONF_SCAN_INTERVAL,
     CONNECTION_TIMEOUT,
     DEFAULT_KEEP_ALIVE_INTERVAL,
     DEFAULT_PASSWORD,
-    CONF_SCAN_INTERVAL,
     DEFAULT_PORT,
     DEFAULT_RECONNECT_INTERVAL,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
 )
 from .errors import AlreadyConfigured, CannotConnect
-from .protocol import InvalidAuth, MAX_PASSWORD_LENGTH
+from .protocol import MAX_PASSWORD_LENGTH, InvalidAuth
+import contextlib
 
 # ---- Discovery constants ---------------------------------------------------
 UDP_DISCOVERY_PORT = 1901
@@ -125,10 +125,8 @@ async def _probe_tcp(ip: str, port: int, timeout: float) -> str | None:
             asyncio.open_connection(ip, port), timeout=timeout
         )
         writer.close()
-        try:
+        with contextlib.suppress(Exception):
             await writer.wait_closed()
-        except Exception:
-            pass
         return ip
     except (asyncio.TimeoutError, ConnectionRefusedError, OSError):
         return None
@@ -183,7 +181,8 @@ async def discover_devices(hass: HomeAssistant) -> list[dict]:
 
 async def connect_client(hass, user_input):
     """Open a test connection to validate credentials."""
-    from .protocol import USR16Client, CannotConnect as ProtocolCannotConnect
+    from .protocol import CannotConnect as ProtocolCannotConnect
+    from .protocol import USR16Client
 
     client = USR16Client(
         host=user_input[CONF_HOST],

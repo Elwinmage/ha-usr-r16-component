@@ -3,15 +3,16 @@
 import asyncio
 from typing import Any, cast
 from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
 
 from custom_components.usr_r16.protocol import (
-    USR16Client,
-    USR16Protocol,
-    InvalidAuth,
-    CannotConnect,
     MAX_PASSWORD_LENGTH,
     RELAY_COUNT,
+    CannotConnect,
+    InvalidAuth,
+    USR16Client,
+    USR16Protocol,
 )
 
 TEST_HOST = "192.168.1.50"
@@ -248,7 +249,7 @@ def test_handle_heartbeat_packet():
 
 
 def test_handle_unknown_packet_logs_warning():
-    client, proto = _make_client()
+    _client, proto = _make_client()
     raw = bytes([0x00, 0x01, 0x00, 0xAB, 0x00])
     checksum = sum(raw) & 0xFF
     # Should not raise, just log warning
@@ -300,7 +301,7 @@ def test_status_waiters_resolved_on_packet():
 
 
 def test_connection_made_sets_transport():
-    client, proto = _make_client()
+    _client, proto = _make_client()
     transport = MagicMock()
     proto._timeout = None
     proto._keep_alive = None
@@ -376,7 +377,7 @@ def test_send_packet_dequeues_and_writes():
 
 
 def test_cancel_timers():
-    client, proto = _make_client()
+    _client, proto = _make_client()
     proto._cancel_timers()
     cast(MagicMock, proto._timeout).cancel.assert_called_once()
     cast(MagicMock, proto._cmd_timeout).cancel.assert_called_once()
@@ -421,9 +422,11 @@ async def test_client_setup_success():
 @pytest.mark.asyncio
 async def test_client_setup_timeout_raises_cannot_connect():
     client = USR16Client(host=TEST_HOST, port=TEST_PORT, password=TEST_PASSWORD)
-    with patch("asyncio.wait_for", side_effect=asyncio.TimeoutError):
-        with pytest.raises(CannotConnect):
-            await client.setup()
+    with (
+        patch("asyncio.wait_for", side_effect=asyncio.TimeoutError),
+        pytest.raises(CannotConnect),
+    ):
+        await client.setup()
 
 
 @pytest.mark.asyncio
@@ -433,9 +436,11 @@ async def test_client_setup_os_error_raises_cannot_connect():
     async def raise_os_error(coro, timeout):
         raise OSError("Connection refused")
 
-    with patch("asyncio.wait_for", side_effect=raise_os_error):
-        with pytest.raises(CannotConnect):
-            await client.setup()
+    with (
+        patch("asyncio.wait_for", side_effect=raise_os_error),
+        pytest.raises(CannotConnect),
+    ):
+        await client.setup()
 
 
 @pytest.mark.asyncio
@@ -456,9 +461,11 @@ async def test_client_setup_invalid_auth_propagates():
             # Second call: auth wait — raise InvalidAuth
             raise InvalidAuth("Wrong password")
 
-    with patch("asyncio.wait_for", side_effect=fake_wait_for):
-        with pytest.raises(InvalidAuth):
-            await client.setup()
+    with (
+        patch("asyncio.wait_for", side_effect=fake_wait_for),
+        pytest.raises(InvalidAuth),
+    ):
+        await client.setup()
 
     mock_transport.close.assert_called()
 
@@ -502,7 +509,7 @@ def test_register_multiple_callbacks_same_port():
 
 @pytest.mark.asyncio
 async def test_turn_on_sends_packet():
-    client, proto = _make_client()
+    client, _proto = _make_client()
     loop = asyncio.get_event_loop()
 
     async def fake_send(pkt):
@@ -519,7 +526,7 @@ async def test_turn_on_sends_packet():
 
 @pytest.mark.asyncio
 async def test_turn_off_sends_packet():
-    client, proto = _make_client()
+    client, _proto = _make_client()
 
     async def fake_send(pkt):
         fut = asyncio.get_event_loop().create_future()
@@ -534,7 +541,7 @@ async def test_turn_off_sends_packet():
 
 @pytest.mark.asyncio
 async def test_toggle_sends_packet():
-    client, proto = _make_client()
+    client, _proto = _make_client()
 
     async def fake_send(pkt):
         fut = asyncio.get_event_loop().create_future()
@@ -565,9 +572,11 @@ async def test_handle_disconnect_reconnects():
         # Second attempt succeeds
         client.reconnect = False  # stop loop
 
-    with patch.object(client, "setup", side_effect=fake_setup):
-        with patch("asyncio.sleep", new_callable=AsyncMock):
-            await client.handle_disconnect()
+    with (
+        patch.object(client, "setup", side_effect=fake_setup),
+        patch("asyncio.sleep", new_callable=AsyncMock),
+    ):
+        await client.handle_disconnect()
 
     assert len(attempts) == 2
 
@@ -591,9 +600,11 @@ async def test_handle_disconnect_stops_on_invalid_auth():
             client.reconnect = False
         await original_sleep(0)
 
-    with patch.object(client, "setup", side_effect=fake_setup):
-        with patch("asyncio.sleep", side_effect=counting_sleep):
-            await client.handle_disconnect()
+    with (
+        patch.object(client, "setup", side_effect=fake_setup),
+        patch("asyncio.sleep", side_effect=counting_sleep),
+    ):
+        await client.handle_disconnect()
 
 
 # ---------------------------------------------------------------------------
@@ -624,14 +635,14 @@ def test_send_next_with_waiters():
 
 def test_send_next_empty_queue():
     """_send_next does nothing when no waiters."""
-    client, proto = _make_client()
+    _client, proto = _make_client()
     proto._send_next()  # should not raise
     cast(MagicMock, proto.transport).write.assert_not_called()
 
 
 def test_cmd_timeout_cancel_on_no_transaction():
     """Lines 210-218: cmd_timeout cancelled when no in_transaction."""
-    client, proto = _make_client()
+    _client, proto = _make_client()
     mock_cmd_timeout = MagicMock()
     proto._cmd_timeout = mock_cmd_timeout
     # Packet with no pending transaction
@@ -643,7 +654,7 @@ def test_cmd_timeout_cancel_on_no_transaction():
 
 def test_reset_timeout_real(hass):
     """Lines 210-218: _reset_timeout schedules real timers (using hass loop)."""
-    client, proto = _make_client()
+    _client, proto = _make_client()
     # Unset the mock so real _reset_timeout is tested
     proto._reset_timeout = USR16Protocol._reset_timeout.__get__(proto, USR16Protocol)
     proto._timeout = None
@@ -658,7 +669,7 @@ def test_reset_timeout_real(hass):
 
 def test_reset_cmd_timeout_real():
     """Lines 224-227: _reset_cmd_timeout schedules timer."""
-    client, proto = _make_client()
+    _client, proto = _make_client()
     proto._reset_cmd_timeout = USR16Protocol._reset_cmd_timeout.__get__(
         proto, USR16Protocol
     )
@@ -685,9 +696,11 @@ async def test_client_setup_auth_timeout():
             return (mock_transport, MagicMock())
         raise asyncio.TimeoutError()
 
-    with patch("asyncio.wait_for", side_effect=fake_wait_for):
-        with pytest.raises(CannotConnect):
-            await client.setup()
+    with (
+        patch("asyncio.wait_for", side_effect=fake_wait_for),
+        pytest.raises(CannotConnect),
+    ):
+        await client.setup()
 
     mock_transport.close.assert_called()
 
@@ -761,7 +774,7 @@ def test_transaction_cmd_timeout_cancel_when_no_waiters():
 
 def test_reset_timeout_cancels_existing():
     """Lines 212,217: _reset_timeout cancels existing timers before rescheduling."""
-    client, proto = _make_client()
+    _client, proto = _make_client()
     # Unset the mock so real logic runs
     proto._reset_timeout = USR16Protocol._reset_timeout.__get__(proto, USR16Protocol)
     old_timeout = MagicMock()
@@ -781,7 +794,7 @@ def test_reset_timeout_cancels_existing():
 
 def test_reset_cmd_timeout_cancels_existing():
     """Line 226: _reset_cmd_timeout cancels existing timer."""
-    client, proto = _make_client()
+    _client, proto = _make_client()
     proto._reset_cmd_timeout = USR16Protocol._reset_cmd_timeout.__get__(
         proto, USR16Protocol
     )
@@ -815,8 +828,10 @@ async def test_client_setup_fires_reconnect_callback():
         client._auth_ok = True
         return True
 
-    with patch("asyncio.wait_for", side_effect=fake_wait_for):
-        with patch("asyncio.shield", side_effect=lambda f: f):
-            await client.setup()
+    with (
+        patch("asyncio.wait_for", side_effect=fake_wait_for),
+        patch("asyncio.shield", side_effect=lambda f: f),
+    ):
+        await client.setup()
 
     reconnect_cb.assert_called_once()

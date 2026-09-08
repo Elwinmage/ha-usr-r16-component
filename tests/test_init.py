@@ -1,7 +1,6 @@
 """Tests for __init__.py — coordinator lifecycle."""
 
 import asyncio
-
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -9,10 +8,10 @@ from homeassistant.core import HomeAssistant
 
 from custom_components.usr_r16 import (
     USR16Coordinator,
+    _async_update_options,
     async_setup,
     async_setup_entry,
     async_unload_entry,
-    _async_update_options,
 )
 from custom_components.usr_r16.const import DOMAIN
 
@@ -305,7 +304,9 @@ async def test_coordinator_refresh_success_path(hass: HomeAssistant) -> None:
 
 @pytest.mark.asyncio
 async def test_async_setup_entry_uses_options_when_set(hass: HomeAssistant) -> None:
-    """When entry.options is non-empty, coordinator should use options values (line 79)."""
+    """When entry.options is non-empty,
+    coordinator should use options values (line 79).
+    """
     entry = _make_entry()
     entry.options = {"host": "10.0.0.5", "port": 8899, "password": "newpass"}
 
@@ -354,7 +355,9 @@ async def test_on_reconnected_ignored_when_client_none(hass: HomeAssistant) -> N
 
 @pytest.mark.asyncio
 async def test_coordinator_wait_for_states_succeeds(hass: HomeAssistant) -> None:
-    """_async_wait_for_states should publish once client.states is populated (lines 196-202)."""
+    """_async_wait_for_states should publish once
+    client.states is populated (lines 196-202).
+    """
     entry = _make_entry()
     mock_client = _make_mock_client()
     mock_client.states = {}  # empty initially

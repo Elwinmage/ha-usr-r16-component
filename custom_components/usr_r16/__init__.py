@@ -1,13 +1,10 @@
 """USR-R16 relay board — Home Assistant integration."""
 
-from datetime import timedelta
-
 import asyncio
 import logging
+from datetime import timedelta
 
-from .protocol import USR16Client
 import voluptuous as vol
-
 from homeassistant.config_entries import SOURCE_IMPORT, ConfigEntry
 from homeassistant.const import (
     CONF_HOST,
@@ -31,6 +28,7 @@ from .const import (
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
 )
+from .protocol import USR16Client
 
 _LOGGER = logging.getLogger(__name__)
 

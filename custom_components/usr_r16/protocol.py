@@ -302,7 +302,7 @@ class USR16Client:
         self.reconnect_callback = reconnect_callback
 
         self.transport: asyncio.Transport | None = None
-        self.protocol: "USR16Protocol | None" = None
+        self.protocol: USR16Protocol | None = None
         self.is_connected = False
 
         # Command queue

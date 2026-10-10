@@ -2,8 +2,8 @@
 
 import asyncio
 import socket
+from typing import TYPE_CHECKING
 
-import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.const import CONF_HOST, CONF_PASSWORD, CONF_PORT
 from homeassistant.core import HomeAssistant
@@ -21,6 +21,18 @@ from .const import (
 from .errors import AlreadyConfigured, CannotConnect
 from .protocol import MAX_PASSWORD_LENGTH, InvalidAuth
 import contextlib
+
+# Recent Home Assistant cores replaced voluptuous with probatio (a drop-in
+# reimplementation) and type FlowHandler.async_show_form() against
+# probatio.Schema. Use probatio when available so schemas match that type,
+# and fall back to voluptuous on older cores that do not ship probatio.
+if TYPE_CHECKING:
+    import probatio as vol
+else:
+    try:
+        import probatio as vol
+    except ImportError:
+        import voluptuous as vol
 
 # ---- Discovery constants ---------------------------------------------------
 UDP_DISCOVERY_PORT = 1901

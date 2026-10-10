@@ -19,14 +19,20 @@ jobs:
 
       - name: "Set version number from trigger's tag"
         id: update_manifest
+        env:
+          NEW_TAG: ${{ github.event.inputs.tag }}
         run: |
-          yq -i -o json '.version="${{ github.event.inputs.tag}}"' \
-            "${{ github.workspace }}/custom_components/usr_r16/manifest.json"
+          # Utilisation de env() pour injecter la variable proprement dans yq
+          yq -i '.version = env(NEW_TAG)' "${{ github.workspace }}/custom_components/usr_r16/manifest.json"
+          
           git config --global user.email "moranderic31@gmail.com"
           git config --global user.name "Elwinmage"
-          git commit -a -m "Update version"
+          
+          git add "${{ github.workspace }}/custom_components/usr_r16/manifest.json"
+          git commit -m "Update version to $NEW_TAG"
           git push origin HEAD:main
-          SHA=`git rev-parse HEAD`
+          
+          SHA=$(git rev-parse HEAD)
           echo "tag_sha=${SHA}" >> $GITHUB_OUTPUT
 
       - name: Create tag

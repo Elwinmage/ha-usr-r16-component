@@ -44,9 +44,6 @@ This is a fork of [blindlight86/HA_USR-R16](https://github.com/blindlight86/HA_U
 | Requirement | Version |
 |---|---|
 | Home Assistant | ≥ 2022.7.5 |
-| Python library | `usr-r16==0.0.4` |
-
-The Python dependency is installed automatically by Home Assistant.
 
 ---
 
@@ -59,12 +56,6 @@ The Python dependency is installed automatically by Home Assistant.
 3. Add `https://github.com/Elwinmage/ha-usr-r16-component` as an **Integration**.
 4. Search for **USR-R16** and click **Download**.
 5. Restart Home Assistant.
-
-### Manual
-
-1. Download or clone this repository.
-2. Copy the `custom_components/usr_r16/` folder into your Home Assistant `config/custom_components/` directory.
-3. Restart Home Assistant.
 
 ---
 

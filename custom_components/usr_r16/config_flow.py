@@ -243,7 +243,6 @@ class R16FlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a USR-R16 config flow."""
 
     VERSION = 1
-    CONNECTION_CLASS = config_entries.CONN_CLASS_LOCAL_PUSH
 
     def __init__(self):
         """Initialize flow state."""

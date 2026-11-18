@@ -835,3 +835,47 @@ async def test_client_setup_fires_reconnect_callback():
         await client.setup()
 
     reconnect_cb.assert_called_once()
+
+
+def test_client_request_status_sends_0a():
+    """request_status() writes a 0x0a packet when idle."""
+    client = USR16Client(host=TEST_HOST, port=TEST_PORT, password=TEST_PASSWORD)
+    client.transport = MagicMock()
+    client.request_status()
+    client.transport.write.assert_called_once_with(USR16Protocol.format_packet("0a"))
+
+
+def test_client_request_status_skipped_without_transport_or_in_transaction():
+    """request_status() is a no-op without transport or while a command is in flight."""
+    client = USR16Client(host=TEST_HOST, port=TEST_PORT, password=TEST_PASSWORD)
+    client.request_status()  # no transport: must not raise
+    client.transport = MagicMock()
+    client.in_transaction = True
+    client.request_status()
+    client.transport.write.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_client_setup_requests_status_after_auth():
+    """setup() sends a status request right after successful auth."""
+    client = USR16Client(host=TEST_HOST, port=TEST_PORT, password=TEST_PASSWORD)
+    mock_transport = MagicMock()
+    call_count = [0]
+
+    async def fake_wait_for(coro, timeout):
+        call_count[0] += 1
+        if call_count[0] == 1:
+            if hasattr(coro, "close"):
+                coro.close()
+            client.transport = mock_transport
+            return (mock_transport, MagicMock())
+        client._auth_ok = True
+        return True
+
+    with (
+        patch("asyncio.wait_for", side_effect=fake_wait_for),
+        patch("asyncio.shield", side_effect=lambda f: f),
+    ):
+        await client.setup()
+
+    mock_transport.write.assert_any_call(USR16Protocol.format_packet("0a"))

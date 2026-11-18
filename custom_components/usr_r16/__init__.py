@@ -27,6 +27,7 @@ from .const import (
     DEFAULT_RECONNECT_INTERVAL,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
+    STATE_WAIT_ATTEMPTS,
 )
 from .protocol import USR16Client
 
@@ -186,22 +187,20 @@ class USR16Coordinator(DataUpdateCoordinator[dict[str, bool]]):
             )
             _LOGGER.debug("Registered status callback for relay %s", port)
 
-        # The lib's setup() calls status() internally which may return {} if a
-        # 0xff heartbeat packet resolves the future first. The real 0x8a response
-        # arrives shortly after and updates client.states directly. We wait a
-        # short time then read client.states — if still empty we wait a bit more.
+        # setup() sends a 0x0a status request right after auth; the 0x8a reply
+        # arrives asynchronously and updates client.states. Wait for it, then
+        # publish to entities.
         await self._async_wait_for_states()
 
     async def _async_wait_for_states(self) -> None:
         """Wait for client.states to be populated then publish to entities.
 
-        The lib sends a 0x0a status request during setup(). If a 0xff heartbeat
-        arrives first it resolves the internal future with {} — but the device
-        still sends the real 0x8a full-state response afterwards, which
-        _handle_raw_packet processes and stores into client.states.
+        setup() sends a 0x0a status request right after auth (and keepalives
+        repeat it every keep_alive_interval). The 0x8a full-state response is
+        processed by _handle_raw_packet and stored into client.states.
         We poll client.states with short sleeps until it is populated.
         """
-        for attempt in range(20):  # up to 2 seconds total
+        for attempt in range(STATE_WAIT_ATTEMPTS):
             assert self._client is not None
             states = dict(self._client.states)
             if states:
@@ -213,14 +212,17 @@ class USR16Coordinator(DataUpdateCoordinator[dict[str, bool]]):
                 self.async_set_updated_data(states)
                 return
             _LOGGER.debug(
-                "client.states empty, waiting 100ms (attempt %d/20)", attempt + 1
+                "client.states empty, waiting 100ms (attempt %d/%d)",
+                attempt + 1,
+                STATE_WAIT_ATTEMPTS,
             )
             await asyncio.sleep(0.1)
 
-        # Still empty after 2s — publish empty dict so entities show unknown
-        # rather than blocking. Push callbacks will update them on next change.
+        # Still empty — publish empty dict so entities show unknown rather
+        # than blocking. Keepalive replies / push callbacks will fill them in.
         _LOGGER.warning(
-            "client.states still empty after 2s for %s — relying on push callbacks",
+            "client.states still empty after %.1fs for %s — relying on push callbacks",
+            STATE_WAIT_ATTEMPTS * 0.1,
             self._address,
         )
         self.async_set_updated_data({})

@@ -364,6 +364,11 @@ class USR16Client:
             self.transport.close()
             raise
 
+        # Ask for the full relay bitmap right away instead of waiting for the
+        # first keepalive (keep_alive_interval after auth). The 0x8a reply is
+        # stored into self.states by the protocol handler.
+        self.request_status()
+
         # Fire reconnect callback (signals coordinator the connection is ready)
         if self.reconnect_callback:
             self.reconnect_callback()
@@ -406,6 +411,18 @@ class USR16Client:
     # ------------------------------------------------------------------
     # Commands
     # ------------------------------------------------------------------
+
+    def request_status(self) -> None:
+        """Send a fire-and-forget status request (0x0a).
+
+        The reply is not awaited: it updates self.states and fires the push
+        callbacks through _handle_raw_packet. Skipped while a command is in
+        flight, since its reply already carries the relay states.
+        """
+        if self.transport is None or self.in_transaction:
+            return
+        _LOGGER.debug("Requesting initial status from %s", self.address)
+        self.transport.write(USR16Protocol.format_packet("0a"))
 
     def _send(self, packet: bytes) -> asyncio.Future:
         """Enqueue a packet and return a future resolved when acknowledged."""

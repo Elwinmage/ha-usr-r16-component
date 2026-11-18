@@ -381,7 +381,7 @@ async def test_coordinator_wait_for_states_succeeds(hass: HomeAssistant) -> None
 async def test_coordinator_wait_for_states_timeout_publishes_empty(
     hass: HomeAssistant,
 ) -> None:
-    """_async_wait_for_states should publish {} after 2s if still empty (line 208+)."""
+    """_async_wait_for_states should publish {} if still empty after the wait."""
     entry = _make_entry()
     mock_client = _make_mock_client()
     mock_client.states = {}
